@@ -1,8 +1,15 @@
 export const MEM_OFFSET = {
-  TASK_INDEX: 0, // 全局流水线原子取号器下标 (Atomics.add)
-  TOTAL_TASKS: 1, // 任务总数
-  COMPLETED_COUNT: 2, // 已完成子任务原子计数
-  WORK_DATA_START: 3, // 实际计算产物存储的起始物理地址
+  STATUS: 0, // 线程池状态: 0 = 待机休眠, 1 = 工作运行, 2 = 销毁退出
+  TASK_INDEX: 1, // 全局原子取号下标 (Atomics.add)
+  TOTAL_TASKS: 2, // 任务总数
+  COMPLETED_COUNT: 3, // 已完成子任务原子计数
+  WORK_DATA_START: 4, // 计算产物起始物理内存地址
+} as const
+
+export const POOL_STATUS = {
+  SLEEP: 0,
+  RUNNING: 1,
+  TERMINATED: 2,
 } as const
 
 // 算力消耗函数（防 V8 优化器死代码消除）

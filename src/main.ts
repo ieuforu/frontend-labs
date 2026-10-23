@@ -1,4 +1,4 @@
-import { WorkerThreadPool } from './pool'
+import { PersistentThreadPool } from './pool'
 import { heavyWorkUnit } from './constants'
 
 const btnBlock = document.getElementById('btn-block') as HTMLButtonElement
@@ -14,16 +14,19 @@ const isolationStatus = document.getElementById('isolation-status') as HTMLDivEl
 const spinnerCanvas = document.getElementById('raf-spinner') as HTMLCanvasElement
 const sCtx = spinnerCanvas.getContext('2d')!
 
-// 1. 跨源隔离检测
+// 初始化常驻线程池（单例常驻，只在页面启动时初始化一次）
+const pool = new PersistentThreadPool()
+
 if (window.crossOriginIsolated) {
-  isolationStatus.textContent = `跨源隔离已生效 (SharedArrayBuffer 可用) | 检测到 ${navigator.hardwareConcurrency || 4} 核 CPU`
+  pool.init(500_000) // 预分配 50 万容量的共享物理内存
+  isolationStatus.textContent = `跨源隔离已生效 | 常驻线程池已就绪 (${pool.concurrency} 核心处于休眠待命状态)`
   isolationStatus.style.color = '#10b981'
 } else {
   isolationStatus.textContent = '未启用跨源隔离，SharedArrayBuffer 被禁用！'
   isolationStatus.style.color = '#ef4444'
 }
 
-// 2. rAF 帧率探测仪
+// rAF 监控帧率
 let angle = 0
 let lastFrameTime = performance.now()
 let frameCount = 0
@@ -66,9 +69,7 @@ function setButtonsDisabled(disabled: boolean) {
 const TOTAL_TASKS = 300_000
 let globalSink = 0
 
-// -------------------------------------------------------------
-// 模式 1：单线程同步阻塞
-// -------------------------------------------------------------
+// 1. 单线程同步阻塞
 btnBlock.addEventListener('click', () => {
   setButtonsDisabled(true)
   progressFill.style.width = '0%'
@@ -91,9 +92,7 @@ btnBlock.addEventListener('click', () => {
   }, 50)
 })
 
-// -------------------------------------------------------------
-// 模式 2：5ms 协作式切片调度（第二站方案）
-// -------------------------------------------------------------
+// 2. 5ms 协作切片调度
 btnSlice.addEventListener('click', async () => {
   setButtonsDisabled(true)
   progressFill.style.width = '0%'
@@ -139,11 +138,7 @@ btnSlice.addEventListener('click', async () => {
   setButtonsDisabled(false)
 })
 
-// -------------------------------------------------------------
-// 模式 3：SharedArrayBuffer + Atomics 多核并行
-// -------------------------------------------------------------
-const pool = new WorkerThreadPool()
-
+// 3. 常驻线程池：Atomics.notify 唤醒已休眠的 Worker
 btnWorker.addEventListener('click', async () => {
   if (!window.crossOriginIsolated) {
     log(`❌ 错误：未处于 crossOriginIsolated 环境，无法分配 SharedArrayBuffer`)
@@ -152,19 +147,18 @@ btnWorker.addEventListener('click', async () => {
 
   setButtonsDisabled(true)
   progressFill.style.width = '0%'
-  statusText.textContent = `多核并行计算中 (${pool.concurrency} 核心)...`
-  log(`[Mode 3] 启动多线程共享内存池 (${pool.concurrency} 个并行 Worker)...`)
+  statusText.textContent = `常驻线程池秒级唤醒中 (${pool.concurrency} 核心)...`
+  log(`[Mode 3] 触发 Atomics.notify 唤醒常驻线程池...`)
 
-  const { elapsed, results } = await pool.runParallel(TOTAL_TASKS, (completed, total) => {
+  const { elapsed, results } = await pool.run(TOTAL_TASKS, (completed, total) => {
     const ratio = completed / total
     progressFill.style.width = `${(ratio * 100).toFixed(1)}%`
-    statusText.textContent = `多核推进中: ${(ratio * 100).toFixed(0)}% (${completed}/${total})`
+    statusText.textContent = `多核常驻推进: ${(ratio * 100).toFixed(0)}% (${completed}/${total})`
   })
 
-  // 主线程直接读取第一项与最后一项结果验证正确性（零拷贝访问）
   globalSink += results[0] + results[TOTAL_TASKS - 1]
 
-  statusText.textContent = `多核并行完成，耗时: ${elapsed.toFixed(1)} ms`
-  log(`[Mode 3] 多核计算完毕！耗时仅: ${elapsed.toFixed(1)} ms (零拷贝物理内存直通)`)
+  statusText.textContent = `多核计算完成（线程已归位休眠），耗时: ${elapsed.toFixed(1)} ms`
+  log(`[Mode 3] 计算结束！耗时仅: ${elapsed.toFixed(1)} ms (零线程创建开销，算完自动休眠)`)
   setButtonsDisabled(false)
 })
