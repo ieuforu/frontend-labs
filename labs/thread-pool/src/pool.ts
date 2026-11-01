@@ -1,4 +1,7 @@
-import { MEM_OFFSET, POOL_STATUS } from './constants'
+import { MEM_OFFSET, POOL_STATUS } from './constants.ts'
+
+type Result = { elapsed: number; results: Int32Array }
+type ActiveRun = { timer: number; reject: (error: Error) => void }
 
 export class PersistentThreadPool {
   private workers: Worker[] = []
@@ -6,97 +9,131 @@ export class PersistentThreadPool {
   private sab: SharedArrayBuffer | null = null
   private sharedInt32: Int32Array | null = null
   private allocatedTaskCapacity = 0
+  private active: ActiveRun | null = null
+  private failure: Error | null = null
 
   constructor(concurrency: number = navigator.hardwareConcurrency || 4) {
+    if (!Number.isInteger(concurrency) || concurrency < 1) {
+      throw new RangeError('Concurrency must be a positive integer')
+    }
     this.concurrency = concurrency
   }
 
-  /**
-   * 初始化常驻线程池（只分配一次线程，常驻后台）
-   */
-  init(maxTaskCapacity: number = 500_000): void {
+  init(maxTaskCapacity = 500_000): void {
     if (this.workers.length > 0) return
-
+    if (!Number.isInteger(maxTaskCapacity) || maxTaskCapacity < 1 || maxTaskCapacity > 0x7fffffff) {
+      throw new RangeError('Capacity must be a positive Int32 task count')
+    }
+    this.failure = null
     this.allocatedTaskCapacity = maxTaskCapacity
-    const totalSlots = MEM_OFFSET.WORK_DATA_START + maxTaskCapacity
-    const byteLength = totalSlots * Int32Array.BYTES_PER_ELEMENT
-
-    this.sab = new SharedArrayBuffer(byteLength)
+    this.sab = new SharedArrayBuffer(
+      (MEM_OFFSET.WORK_DATA_START + maxTaskCapacity) * Int32Array.BYTES_PER_ELEMENT,
+    )
     this.sharedInt32 = new Int32Array(this.sab)
 
-    // 初始状态置为 SLEEP
-    Atomics.store(this.sharedInt32, MEM_OFFSET.STATUS, POOL_STATUS.SLEEP)
-
-    // 创建常驻 Workers 并注入共享内存引用
-    this.workers = Array.from({ length: this.concurrency }, (_, id) => {
-      const worker = new Worker(new URL('./worker.ts', import.meta.url), {
-        type: 'module',
-      })
-      worker.postMessage({ sab: this.sab, workerId: id })
-      return worker
-    })
+    try {
+      for (let id = 0; id < this.concurrency; id++) {
+        const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+        worker.onerror = () => this.fail(new Error('Worker execution failed'))
+        worker.onmessageerror = () => this.fail(new Error('Worker message could not be decoded'))
+        this.workers.push(worker)
+        worker.postMessage({ sab: this.sab })
+      }
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error(String(error))
+      this.fail(failure)
+      throw failure
+    }
   }
 
-  /**
-   * 唤醒常驻线程执行计算任务（零线程创建开销）
-   */
   async run(
     totalTasks: number,
-    onProgress: (completed: number, total: number) => void,
-  ): Promise<{ elapsed: number; results: Int32Array }> {
-    if (!this.sharedInt32 || !this.sab) {
-      throw new Error('ThreadPool must be initialized before running tasks.')
+    onProgress: (completed: number, total: number) => void = () => {},
+  ): Promise<Result> {
+    if (this.failure) throw this.failure
+    const shared = this.sharedInt32
+    if (!shared || !this.sab) throw new Error('Initialize the thread pool before running tasks')
+    if (this.active) throw new Error('A batch is already running')
+    if (
+      !Number.isInteger(totalTasks) ||
+      totalTasks < 0 ||
+      totalTasks > this.allocatedTaskCapacity
+    ) {
+      throw new RangeError('Task count must be an integer within the allocated capacity')
     }
-    if (totalTasks > this.allocatedTaskCapacity) {
-      throw new Error(`Tasks count exceeds allocated capacity (${this.allocatedTaskCapacity}).`)
+    if (totalTasks === 0) {
+      onProgress(0, 0)
+      return {
+        elapsed: 0,
+        results: shared.subarray(MEM_OFFSET.WORK_DATA_START, MEM_OFFSET.WORK_DATA_START),
+      }
     }
 
-    // 重置本轮任务元数据
-    Atomics.store(this.sharedInt32, MEM_OFFSET.TASK_INDEX, 0)
-    Atomics.store(this.sharedInt32, MEM_OFFSET.TOTAL_TASKS, totalTasks)
-    Atomics.store(this.sharedInt32, MEM_OFFSET.COMPLETED_COUNT, 0)
+    Atomics.store(shared, MEM_OFFSET.TASK_INDEX, 0)
+    Atomics.store(shared, MEM_OFFSET.TOTAL_TASKS, totalTasks)
+    Atomics.store(shared, MEM_OFFSET.COMPLETED_COUNT, 0)
+    Atomics.store(shared, MEM_OFFSET.FINISHED_WORKERS, 0)
+    const start = performance.now()
 
-    const t0 = performance.now()
-
-    // 1. 修改状态为 RUNNING 并发出原子广播唤醒所有休眠核心
-    Atomics.store(this.sharedInt32, MEM_OFFSET.STATUS, POOL_STATUS.RUNNING)
-    Atomics.notify(this.sharedInt32, MEM_OFFSET.STATUS, this.concurrency)
-
-    // 2. 主线程轻量轮询完成进度
-    await new Promise<void>((resolve) => {
-      const timer = window.setInterval(() => {
-        const completed = Atomics.load(this.sharedInt32!, MEM_OFFSET.COMPLETED_COUNT)
-        onProgress(completed, totalTasks)
-
-        if (completed >= totalTasks) {
-          clearInterval(timer)
-          // 任务完成后，状态重置为 SLEEP，让 Workers 自动休眠归位
-          Atomics.store(this.sharedInt32!, MEM_OFFSET.STATUS, POOL_STATUS.SLEEP)
-          resolve()
+    return new Promise<Result>((resolve, reject) => {
+      const run: ActiveRun = { timer: 0, reject }
+      this.active = run
+      run.timer = window.setInterval(() => {
+        if (this.active !== run) return
+        const completed = Atomics.load(shared, MEM_OFFSET.COMPLETED_COUNT)
+        try {
+          onProgress(completed, totalTasks)
+        } catch (error) {
+          this.fail(error instanceof Error ? error : new Error(String(error)))
+          return
+        }
+        if (this.active !== run) return
+        if (
+          completed === totalTasks &&
+          Atomics.load(shared, MEM_OFFSET.FINISHED_WORKERS) === this.concurrency
+        ) {
+          window.clearInterval(run.timer)
+          this.active = null
+          Atomics.store(shared, MEM_OFFSET.STATUS, POOL_STATUS.SLEEP)
+          resolve({
+            elapsed: performance.now() - start,
+            // This view is reused by the next run. Call .slice() to retain a result.
+            results: shared.subarray(
+              MEM_OFFSET.WORK_DATA_START,
+              MEM_OFFSET.WORK_DATA_START + totalTasks,
+            ),
+          })
         }
       }, 16)
+
+      Atomics.store(shared, MEM_OFFSET.STATUS, POOL_STATUS.RUNNING)
+      Atomics.add(shared, MEM_OFFSET.GENERATION, 1)
+      Atomics.notify(shared, MEM_OFFSET.GENERATION, this.concurrency)
     })
-
-    const elapsed = performance.now() - t0
-    onProgress(totalTasks, totalTasks)
-
-    const results = this.sharedInt32.subarray(
-      MEM_OFFSET.WORK_DATA_START,
-      MEM_OFFSET.WORK_DATA_START + totalTasks,
-    )
-
-    return { elapsed, results }
   }
 
-  /**
-   * 销毁常驻线程池
-   */
   destroy(): void {
+    this.fail(new Error('Thread pool was destroyed'))
+  }
+
+  private fail(error: Error): void {
+    this.failure = error
+    if (this.active) {
+      window.clearInterval(this.active.timer)
+      const pending = this.active
+      this.active = null
+      pending.reject(error)
+    }
     if (this.sharedInt32) {
       Atomics.store(this.sharedInt32, MEM_OFFSET.STATUS, POOL_STATUS.TERMINATED)
-      Atomics.notify(this.sharedInt32, MEM_OFFSET.STATUS, this.concurrency)
+      Atomics.add(this.sharedInt32, MEM_OFFSET.GENERATION, 1)
+      Atomics.notify(this.sharedInt32, MEM_OFFSET.GENERATION, this.concurrency)
     }
-    this.workers.forEach((w) => w.terminate())
+    for (const worker of this.workers) {
+      worker.onerror = null
+      worker.onmessageerror = null
+      worker.terminate()
+    }
     this.workers = []
     this.sab = null
     this.sharedInt32 = null

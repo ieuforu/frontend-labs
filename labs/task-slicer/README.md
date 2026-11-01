@@ -1,180 +1,62 @@
-# task-slicer-lab
+# Task Slicer
 
-A production-grade, zero-dependency cooperative main-thread task scheduler built from scratch with TypeScript. Features 5ms frame-budget time-slicing, Min-Heap priority queuing with absolute expiration deadlines, lazy cancellation via `AbortSignal`, and automatic fallback from native W3C `scheduler.yield()` to zero-delay `MessageChannel` macro-tasks.
+一个协作式主线程任务调度实验，用最小堆按到期时间安排任务，并观察长任务切片、优先级和取消。
 
----
+## 运行
 
-## Architecture Overview
+在仓库根目录：
 
-Browsers execute JavaScript, style calculations, layout, and paint sequentially on a single thread. Executing non-preemptive scripts longer than 50ms results in Long Tasks, causing dropped animation frames (jank) and frozen user inputs.
-
-`task-slicer-lab` implements cooperative multitasking: tasks voluntarily yield execution back to the browser runtime at predictable intervals (5ms frame budget), enabling 120 FPS rendering and zero-latency user input handling during intensive computations.
-
-```text
-[ Browser Event Loop ]
-      │
-      ├──> [ Microtasks Queue ] (Promise.then, MutationObserver) - Ran to exhaustion
-      │
-      ├──> [ Task Scheduler Work Loop ]
-      │        │
-      │        ├── Peek Min-Heap (Highest priority / Lowest expiration)
-      │        ├── Execute Work Chunk
-      │        │
-      │        └── Check Deadline:
-      │                ├── elapsed < 5ms  ──> Continue chunking
-      │                └── elapsed >= 5ms ──> Yield to Main Thread:
-      │                                         ├── Native: scheduler.yield()
-      │                                         └── Fallback: MessageChannel (Port2 -> Port1)
-      │
-      └──> [ Browser Rendering Pipeline ] (rAF -> Style -> Layout -> Paint -> Composite)
+```sh
+pnpm dev:task
+pnpm --filter task-slicer-lab build
 ```
 
----
+页面可以投递后台计算、高优先级任务、取消后台工作，以及制造持续高优先级负载。
 
-## Core Mechanics & Mathematics
+## 实现
 
-### 1. Work Loop & 5ms Frame Budget
+- 每轮调度设置约 5ms 的预算；回调需要主动检查 `shouldYield()` 并返回 `true` 表示继续。
+- 优先使用浏览器 `scheduler.yield()`，否则使用 MessageChannel。
+- 任务从堆中取出后才调用回调；仅未完成任务重新入队，避免回调插入高优任务后被重复执行。
+- AbortSignal 只影响后续调度，无法中断一个正在同步执行的 JavaScript 回调。
+- 完成、取消和销毁时移除 abort 监听，`destroy()` 关闭 MessageChannel。
 
-Instead of scheduling fixed-size chunk iterations, the scheduler measures real elapsed execution time:
+当前实验的到期偏移为 Immediate -1ms、UserBlocking 250ms、Normal 500ms、Background 800ms。
+到期任务会收到 `didTimeout = true`；示例随后同步完成剩余工作，这可能产生长任务，正是实验要观察的取舍。
 
-$$T_{\text{slice}} = T_{\text{now}} - T_{\text{start}}$$
+## 示例
 
-If $T_{\text{slice}} \ge 5\text{ms}$ and the task has not timed out, the inner execution loop yields control. A 5ms budget guarantees sufficient headroom within 16.6ms (60Hz) or 8.3ms (120Hz) frame intervals for layout, style recalc, and GPU composition.
+```ts
+import { TaskScheduler, PriorityLevel } from './src/scheduler.ts'
 
-### 2. Min-Heap Priority Queue & Expiration Times
-
-Priorities map to timeout offsets added to current timestamps:
-
-$$\text{expirationTime} = \text{currentTime} + \text{timeout}$$
-
-| Priority Level | Timeout Offset       | Target Scenario                                 |
-| :------------- | :------------------- | :---------------------------------------------- |
-| `Immediate`    | `-1ms`               | Synchronous / non-deferrable mutations          |
-| `UserBlocking` | `250ms`              | User interactions (typing, dragging, clicking)  |
-| `Normal`       | `1000ms`             | Network response parsing, state synchronization |
-| `Background`   | `2000ms` / `10000ms` | Heavy data processing, offline computations     |
-
-Tasks are stored in a binary min-heap where each node at index $i$ satisfies:
-
-$$\text{heap}[i].\text{sortIndex} \le \text{heap}[2i + 1].\text{sortIndex} \quad \text{and} \quad \text{heap}[i].\text{sortIndex} \le \text{heap}[2i + 2].\text{sortIndex}$$
-
-- **Insert / Push**: Appends to array tail and sifts up in $O(\log N)$.
-- **Extract / Pop**: Swaps root with tail, truncates, and sifts down in $O(\log N)$.
-- **Peek**: Retrieves current highest-urgency task in $O(1)$.
-
-### 3. Starvation Prevention (Forced Flushing)
-
-High-frequency bursts of `UserBlocking` tasks can starve `Background` tasks. If an uncompleted task passes its deadline:
-
-$$\text{currentTime} \ge \text{expirationTime} \implies \text{didTimeout} = \text{true}$$
-
-The scheduler revokes cooperative yielding for that task, forcing a synchronous flush until completion to prevent infinite starvation.
-
-### 4. Cancellation via AbortSignal & Lazy Pruning
-
-Tasks accept standard DOM `AbortSignal` handles. To prevent expensive $O(N)$ searches inside the binary heap array, cancellations mark tasks with `isCancelled = true`. The work loop prunes cancelled nodes lazily when they reach the heap root in $O(\log N)$.
-
----
-
-## Task Scheduler vs. React Fiber Scheduler
-
-| Dimension              | `task-slicer-lab`                                           | React Scheduler (`packages/scheduler`)                      |
-| :--------------------- | :---------------------------------------------------------- | :---------------------------------------------------------- |
-| **Yielding Primitive** | Native `scheduler.yield()` with `MessageChannel` fallback   | `MessageChannel` postMessage (historical `rIC` deprecated)  |
-| **Priority Queue**     | Array-backed Binary Min-Heap (`sortIndex = expirationTime`) | Array-backed Binary Min-Heap (`sortIndex = expirationTime`) |
-| **Time Budget**        | 5ms adaptive deadline                                       | 5ms fixed frame interval                                    |
-| **Task Cancellation**  | Standard `AbortController` / `AbortSignal`                  | Internal status flags (`task.callback = null`)              |
-| **Dynamic Preemption** | Priority-based heap interruption on continuation return     | Priority-based fiber work re-assignment                     |
-| **Framework Coupling** | Zero dependencies, universal browser runtime                | Coupled to React reconciler and fiber nodes                 |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (>= 18)
-- pnpm (>= 8)
-
-### Installation & Development
-
-```bash
-# Clone the repository
-git clone [https://github.com/](https://github.com/)<your-username>/task-slicer-lab.git
-cd task-slicer-lab
-
-# Install dependencies
-pnpm install
-
-# Start development server
-pnpm dev
-
-# Build with TypeScript typechecking
-pnpm build
-```
-
----
-
-## API Usage
-
-```typescript
-import { TaskScheduler, PriorityLevel } from "./scheduler";
-
-const scheduler = new TaskScheduler();
-
-// 1. Post a long background task with cooperative time slicing
-const controller = new AbortController();
+const scheduler = new TaskScheduler()
+const controller = new AbortController()
+let index = 0
 
 scheduler.postTask(
   (didTimeout) => {
-    while (hasMoreWork()) {
-      performHeavyCalculationChunk();
-
-      // Yield if slice deadline reached and not starved
-      if (scheduler.shouldYield() && !didTimeout) {
-        return true; // Return true to indicate continuation
-      }
+    while (index < items.length) {
+      processItem(items[index++])
+      if (!didTimeout && scheduler.shouldYield()) return true
     }
-    return false; // Task completed
+    return false
   },
-  {
-    priority: PriorityLevel.Background,
-    signal: controller.signal,
-  },
-);
+  { priority: PriorityLevel.Background, signal: controller.signal },
+)
 
-// 2. Post a high-priority user-blocking task that interrupts background slices
-scheduler.postTask(
-  () => {
-    handleImmediateUserInteraction();
-    return false;
-  },
-  {
-    priority: PriorityLevel.UserBlocking,
-  },
-);
-
-// 3. Cancel task on demand
-controller.abort();
+// controller.abort()
+// scheduler.destroy()
 ```
 
----
+`items` 和 `processItem` 由调用方提供。一次 `processItem` 本身也必须足够短；
+调度器无法抢占一个长时间不返回的函数。
 
-## Project Structure
+## 验证与限制
 
-```text
-.
-├── index.html         # Instrumentation UI, FPS probe, and starvation controls
-├── src/
-│   ├── main.ts        # UI bindings, stress test loops, and state probes
-│   ├── minHeap.ts     # Zero-dependency binary Min-Heap implementation
-│   └── scheduler.ts   # Core cooperative work loop, yielding, and starvation engine
-├── package.json
-└── tsconfig.json      # Strict TS configuration (erasableSyntaxOnly compliant)
-```
+根目录 `pnpm test` 验证回调插队、继续执行、取消、异常恢复、时间预算和 MessageChannel fallback。
+调度不是帧率保证；布局、绘制和其他脚本同样消耗主线程时间。
+实验不提供延时任务、完整任务生命周期事件或通用错误处理策略。
 
----
+## 来源
 
-## License
-
-MIT
+迁自 [task-slicer-lab](https://github.com/ieuforu/task-slicer-lab)，完整原始历史已保留。原 README 声明 MIT。

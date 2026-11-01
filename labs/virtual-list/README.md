@@ -1,171 +1,43 @@
-# virtual-list-lab
+# Virtual List
 
-A production-grade, zero-dependency dynamic virtual list built with pure TypeScript. Supports **100,000+ variable-height items**, $O(\log N)$ binary search offset indexing, progressive prefix-sum height reconciliation via `ResizeObserver`, and **Zero-GC DOM Object Pooling**.
+用二分查找、前缀位置缓存和 DOM 复用展示 100,000 条不定高测试记录。
+通过页面的调试按钮观察可见范围、复用槽位和滚动占位高度。
 
----
+## 运行
 
-## Architecture Overview
+在仓库根目录：
 
-Rendering 100,000 complex DOM nodes directly causes severe browser layout thrashing, extreme memory footprint, and dropped frames during scrolling.
-
-`virtual-list-lab` decouples total dataset size from DOM node count by pooling a fixed set of physical DOM elements (~20 nodes) inside the viewport. It dynamically patches CSS transforms and text content without invoking `appendChild` or `removeChild`, eliminating V8 Minor GC pauses and layout thrashing.
-
-```text
-[ Viewport Container (overflow-y: auto) ]
-      │
-      ├──> [ Phantom Spacer (#phantom) ]
-      │        └── height: totalHeight (Prefix Sum of all item heights)
-      │
-      ├──> [ Content Layer (#content-box) ]
-      │        └── DOM Object Pool (Fixed ~20 nodes)
-      │                │
-      │                ├── translate3d(0, pos.top, 0) ──> GPU Composite Layer
-      │                └── textContent patching       ──> Zero DOM allocations
-      │
-      ├──> [ Scroll Listener (passive + rAF) ]
-      │        └── scrollTop ──> O(log N) Binary Search ──> [startIndex, endIndex]
-      │
-      └──> [ ResizeObserver Dynamic Loop ]
-               └── Real Height Delta (dVal) ──> Cascade Prefix Sum Update
+```sh
+pnpm dev:list
+pnpm --filter virtual-list-lab build
 ```
 
----
+## 实现
 
-## Core Algorithms & Mechanics
+- 根据预计高度初始化位置数组，二分查找第一个可见元素。
+- 渲染可见行与缓冲行，复用 DOM 节点。
+- ResizeObserver 测量真实行高；一批观察结果只重建一次受影响的位置后缀。
+- 高度修正后主动请求下一帧，更新可见行的位置；修正视口上方高度时保留当前行内偏移。
+- 观察视口尺寸，必要时扩大节点池。节点池保留历史最大容量，因此不是永久固定节点数。
+- `destroy()` 移除滚动监听、观察器、排队帧和本实例创建的行节点。
 
-### 1. Dynamic Height & Monotonic Prefix Sum
+## 复杂度与限制
 
-When item heights vary dynamically, calculating offsets via fixed multiplication ($i \times H$) is impossible. The engine maintains a prefix-sum array `positions`:
+查找起点为 O(log N)，但高度变化后的数组后缀修正最坏仍为 O(N)。
+一次观察回调含 K 条变化时，当前实现约为 O(K + N)，并非所有操作都是对数复杂度。
 
-$$\text{top}_i = \sum_{k=0}^{i-1} \text{height}_k, \quad \text{bottom}_i = \text{top}_i + \text{height}_i$$
+节点复用减少节点创建，不等于零内存分配或零 GC。文本、样式字符串、位置数组和浏览器布局均有开销。
+没有通用渲染器、数据增删 API、完整无障碍列表语义或无限滚动数据源。
+若把实验用于实际产品，还需覆盖焦点、图片异步尺寸、浏览器查找、滚动锚定及目标设备表现。
 
-- Initialized using an estimated base height (e.g., $70\text{px}$).
-- Monotonically increasing: $\text{bottom}_0 < \text{bottom}_1 < \dots < \text{bottom}_{N-1}$.
+## 验证
 
-### 2. $O(\log N)$ Binary Search Offset Indexing
+根目录 `pnpm test` 验证高度变化后的定位、可见行偏移、视口变化、空数据和销毁。
+测试使用受控测量数据，不代表浏览器会以相同顺序发送所有 ResizeObserver 事件。
 
-Given the current `scrollTop`, finding the first visible element `startIndex` requires searching for the first element satisfying $\text{bottom}_i > \text{scrollTop}$.
+性能测量应固定数据量、文本与视口，记录浏览器、设备及多轮结果。
+演示数据与真实业务数据的高度分布可能不同。
 
-Because `bottom` is strictly monotonic, binary search resolves the boundary in $O(\log N)$ comparisons. For $100,000$ records:
+## 来源
 
-$$\lceil \log_2(100{,}000) \rceil \approx 17 \text{ operations}$$
-
-```typescript
-private findStartIndex(scrollTop: number): number {
-  let low = 0;
-  let high = this.positions.length - 1;
-
-  while (low <= high) {
-    const mid = (low + high) >>> 1;
-    const midBottom = this.positions[mid].bottom;
-
-    if (midBottom === scrollTop) {
-      return mid + 1;
-    } else if (midBottom < scrollTop) {
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-  return low;
-}
-```
-
-### 3. Progressive Correction via `ResizeObserver`
-
-When unrendered items enter the screen, their actual text wrapping and bounding dimensions may deviate from `estimatedHeight`.
-
-1. The pool elements are observed by a single `ResizeObserver` instance.
-2. Upon measurement, the height discrepancy is extracted:
-   $$\Delta = \text{realHeight} - \text{cachedHeight}$$
-3. If $\Delta \neq 0$, the target node's dimensions and all subsequent prefix-sum items ($j > \text{index}$) are shifted:
-   $$\text{top}_j \leftarrow \text{top}_j + \Delta, \quad \text{bottom}_j \leftarrow \text{bottom}_j + \Delta$$
-4. The phantom spacer height is re-synchronized to preserve scrollbar fidelity.
-
-### 4. DOM Object Pooling (Zero-GC)
-
-Instead of mutating the DOM tree on each frame, the pool allocates a deterministic number of DOM elements:
-
-$$\text{PoolSize} = \left\lceil \frac{\text{ViewportHeight}}{\text{EstimatedHeight}} \right\rceil + 2 \times \text{BufferCount}$$
-
-- **No Node Insertion/Removal**: Elements are never destroyed or appended during scrolling.
-- **Hardware Compositing**: Elements move along the Y-axis via `transform: translate3d(0, top, 0)`, preventing browser layout/reflow passes.
-- **Zero GC Overhead**: Eliminates ephemeral wrapper object creation, avoiding periodic V8 Minor GC pauses.
-
----
-
-## Performance Comparison (100,000 Dynamic Items)
-
-| Metric                      | Native DOM Rendering        | Naive Virtualization (DOM Churn) | `virtual-list-lab` (Object Pool) |
-| :-------------------------- | :-------------------------- | :------------------------------- | :------------------------------- |
-| **DOM Node Count**          | 100,000+ elements           | Fluctuates (~20 - 40)            | **Fixed (19 - 22 nodes)**        |
-| **Memory Consumption**      | > 800 MB (High GC pressure) | ~120 MB                          | **< 35 MB**                      |
-| **Initial Mount Time**      | > 4,000 ms (Browser freeze) | ~120 ms                          | **< 15 ms**                      |
-| **Scroll FPS**              | < 10 FPS (Severe stutter)   | ~45 - 55 FPS                     | **Locked 120 FPS**               |
-| **DOM Allocations / Frame** | Infinite                    | High (`createElement` / GC)      | **0 allocations**                |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (>= 18)
-- pnpm (>= 8)
-
-### Installation & Run
-
-```bash
-# Clone the repository
-git clone [https://github.com/](https://github.com/)<your-username>/virtual-list-lab.git
-cd virtual-list-lab
-
-# Install dependencies
-pnpm install
-
-# Start Vite dev server
-pnpm dev
-
-# Build with TypeScript typechecking
-pnpm build
-```
-
----
-
-## API Usage
-
-```typescript
-import { VirtualList } from './virtualList'
-
-const list = new VirtualList({
-  viewport: document.getElementById('viewport')!,
-  phantom: document.getElementById('phantom')!,
-  contentBox: document.getElementById('content-box')!,
-  data: itemsArray,
-  estimatedHeight: 70, // Base guess before ResizeObserver measures
-  bufferCount: 6, // 6 items buffer rendered above and below viewport
-  onMetricsUpdate: (domCount, range, totalHeight) => {
-    console.log(`Pool Size: ${domCount}, Visible: [${range[0]}, ${range[1]}]`)
-  },
-})
-```
-
----
-
-## Project Structure
-
-```text
-.
-├── index.html           # Layout shell, viewport styling, and live telemetry
-├── src/
-│   ├── virtualList.ts   # Core virtualizer, binary search, prefix-sum & object pool
-│   └── main.ts          # Mock dataset generation (100k) and runtime initialization
-├── package.json
-└── tsconfig.json        # Strict TS configuration (erasableSyntaxOnly compliant)
-```
-
----
-
-## License
-
-MIT
+迁自 [virtual-list-lab](https://github.com/ieuforu/virtual-list-lab)，完整原始历史已保留。原 README 声明 MIT。

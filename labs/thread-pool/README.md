@@ -1,134 +1,57 @@
-# thread-pool-lab
+# Thread Pool
 
-A production-grade, zero-dependency multi-core worker thread pool built with TypeScript, `SharedArrayBuffer` (SAB), and lock-free `Atomics` pipeline synchronization. Demonstrates true multi-threaded CPU parallel computation, zero-copy physical memory access, and non-blocking 120 FPS UI execution in the browser.
+比较同一份整数运算的三种执行方式：同步主线程、协作切片、共享内存 Worker 池。
+计算函数固定在 `src/constants.ts`，此实验不是可提交任意函数的通用线程池。
 
----
+## 运行
 
-## Architecture Overview
+在仓库根目录：
 
-Traditional Web Worker architectures rely on `postMessage()`, which triggers the Structured Clone algorithm. Transferring large datasets (tens to hundreds of megabytes) introduces substantial CPU serialization/deserialization latency and memory fragmentation on the main thread.
-
-`thread-pool-lab` solves this by mapping a continuous physical memory region (`SharedArrayBuffer`) across the main thread and multiple worker threads. Threads coordinate work dynamically using low-level hardware atomic instructions (`Atomics`), eliminating communication overhead and achieving $O(0)$ memory transmission cost.
-
-```text
-       ┌────────────────────────────────────────────────────────┐
-       │             SharedArrayBuffer (Shared RAM)             │
-       │  [0]: Global Task Index (Atomics)  │ [1...N]: Results  │
-       └────────────────────────────────────────────────────────┘
-                 ▲                     ▲                     ▲
-                 │ (Zero-Copy)         │ (Zero-Copy)         │ (Zero-Copy)
-       ┌─────────┴─────────┐ ┌─────────┴─────────┐ ┌─────────┴─────────┐
-       │   Worker Core 0   │ │   Worker Core 1   │ │   Worker Core 2   │
-       │ (Atomics.add 取号) │ │ (Atomics.add 取号) │ │ (Atomics.add 取号) │
-       └───────────────────┘ └───────────────────┘ └───────────────────┘
+```sh
+pnpm dev:threads
+pnpm --filter thread-pool-lab build
+pnpm --filter thread-pool-lab preview
 ```
 
----
+浏览器必须支持 SharedArrayBuffer，并处于安全上下文和跨源隔离状态。
+Vite dev 与 preview 已设置：
 
-## Core Mechanics & Memory Layout
-
-### 1. Shared Memory Mapping (`Int32Array`)
-
-The continuous shared buffer is organized into a deterministic memory layout:
-
-```text
-[ Offset 0 ]  TASK_INDEX        -> Global atomic ticket counter (Atomics.add)
-[ Offset 1 ]  TOTAL_TASKS       -> Total number of task units to process
-[ Offset 2 ]  COMPLETED_COUNT   -> Atomic counter of completed task units
-[ Offset 3+ ] WORK_DATA_START   -> Contiguous slots for computational output
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
 ```
 
-### 2. Lock-Free Work-Stealing Pipeline
+生产静态服务器也需要设置上述响应头。第三方资源必须满足相应的跨源加载要求。
+界面会显示 `crossOriginIsolated` 状态。
 
-Instead of pre-partitioning chunks statically (which causes load imbalance when tasks vary in complexity), workers run an autonomous, lock-free work-stealing loop:
+## 同步协议
 
-```typescript
-while (true) {
-  // Atomic hardware fetch-and-add (thread-safe, zero lock overhead)
-  const taskIndex = Atomics.add(sharedInt32, MEM_OFFSET.TASK_INDEX, 1)
-  if (taskIndex >= totalTasks) break
+共享 Int32Array 保存状态、下一个任务编号、任务数、完成数、批次序号、结束工作线程数和结果。
+主线程先写好批次元数据，再递增批次序号并唤醒 Worker。
 
-  // Process work directly into shared memory slot
-  sharedInt32[MEM_OFFSET.WORK_DATA_START + taskIndex] = compute(taskIndex)
-  Atomics.add(sharedInt32, MEM_OFFSET.COMPLETED_COUNT, 1)
-}
-```
+Worker 使用 Atomics.add 领取任务。耗尽本批工作后确认完成，随后等待**批次序号变化**，
+不会因主线程尚未写回休眠状态而持续空转。
+主线程收到所有 Worker 的批次完成确认后才允许下一批重置共享元数据。
 
-- **Data Race Prevention**: `Atomics.add` operates at the CPU cache coherence bus level, ensuring no two workers receive identical task indices.
-- **Dynamic Load Balancing**: Faster CPU cores naturally claim more tasks without centralized scheduling overhead.
+## 使用边界
 
-### 3. Cross-Origin Isolation (Security Context)
+- `init(capacity)` 创建常驻 Worker 与共享内存；`run(count, onProgress)` 运行一批。
+- 同时只允许一批任务；重叠调用会拒绝。
+- Worker 异常、进度回调异常和 `destroy()` 会拒绝当前 Promise 并释放线程与轮询器。
+- 返回的 results 是共享内存视图，下一批会复用；需要保留时调用 `results.slice()`。
+- 轮询间隔为 16ms，显示耗时包含完成通知延迟。线程数越多不一定越快。
+- 不提供排队、自动重启、单任务取消、动态扩容或跨浏览器性能保证。
 
-Due to browser mitigations for speculative execution vulnerabilities (Spectre), `SharedArrayBuffer` requires strict cross-origin isolation headers.
+## 测量
 
-Configured in `vite.config.ts`:
+对相同任务量分别运行三个模式，记录设备、浏览器、Worker 数和多轮耗时。
+共享内存减少数据复制，但原子操作、线程调度、缓存争用和主线程进度显示仍有成本。
+不能把共享内存称为“零通信成本”，也不能据此推断固定加速比。
 
-```typescript
-server: {
-  headers: {
-    "Cross-Origin-Opener-Policy": "same-origin",
-    "Cross-Origin-Embedder-Policy": "require-corp",
-  },
-}
-```
+根目录 `pnpm test` 使用真实 Node Worker 线程执行同一计算与同步循环，
+覆盖批次结束后休眠、连续批次结果、重叠调用、销毁和错误处理。
+浏览器隔离策略及 UI 性能需要在目标浏览器中另外验证。
 
----
+## 来源
 
-## Performance Comparison (300,000 Computation Units)
-
-Benchmarked on an 8-Core CPU machine under heavy bitwise math operations:
-
-| Execution Model                  | Core Utilization                  | Total Execution Time | Main Thread Impact           | Zero-Copy                 |
-| :------------------------------- | :-------------------------------- | :------------------- | :--------------------------- | :------------------------ |
-| **1. Synchronous Blocking**      | Single Core (Core 0)              | ~1000 ms             | **Frozen (0 FPS, Jank)**     | N/A                       |
-| **2. Cooperative Time-Slicing**  | Single Core (Core 0)              | ~1050 ms             | **Smooth (120 FPS)**         | N/A                       |
-| **3. SAB + Multi-Core Parallel** | All Cores (`hardwareConcurrency`) | **~150 ms - 220 ms** | **Smooth (120 FPS, 0% CPU)** | **Yes ($O(0)$ Transfer)** |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (>= 18)
-- pnpm (>= 8)
-
-### Installation & Run
-
-```bash
-# Clone the repository
-git clone [https://github.com/](https://github.com/)<your-username>/thread-pool-lab.git
-cd thread-pool-lab
-
-# Install dependencies
-pnpm install
-
-# Start Vite dev server with COOP/COEP headers
-pnpm dev
-
-# Typecheck and build
-pnpm build
-```
-
----
-
-## Project Structure
-
-```text
-.
-├── index.html         # Instrumentation UI, FPS probe, and benchmark panel
-├── vite.config.ts     # Dev server configuration with COOP/COEP headers
-├── src/
-│   ├── constants.ts   # Memory layout offsets and computational workload
-│   ├── worker.ts      # Web Worker pipeline execution and atomic fetching
-│   ├── pool.ts        # Worker pool lifecycle and SAB allocation manager
-│   └── main.ts        # Three-way benchmark runner and telemetry
-├── package.json
-└── tsconfig.json      # Strict TS configuration (erasableSyntaxOnly compliant)
-```
-
----
-
-## License
-
-MIT
+迁自 [thread-pool-lab](https://github.com/ieuforu/thread-pool-lab)，完整原始历史已保留。原 README 声明 MIT。

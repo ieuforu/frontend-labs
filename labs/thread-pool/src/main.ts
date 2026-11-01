@@ -1,5 +1,5 @@
-import { PersistentThreadPool } from './pool'
-import { heavyWorkUnit } from './constants'
+import { PersistentThreadPool } from './pool.ts'
+import { heavyWorkUnit } from './constants.ts'
 
 const btnBlock = document.getElementById('btn-block') as HTMLButtonElement
 const btnSlice = document.getElementById('btn-slice') as HTMLButtonElement
@@ -109,7 +109,11 @@ btnSlice.addEventListener('click', async () => {
     }
     return new Promise<void>((resolve) => {
       const ch = new MessageChannel()
-      ch.port1.onmessage = () => resolve()
+      ch.port1.onmessage = () => {
+        ch.port1.close()
+        ch.port2.close()
+        resolve()
+      }
       ch.port2.postMessage(null)
     })
   }
@@ -150,15 +154,24 @@ btnWorker.addEventListener('click', async () => {
   statusText.textContent = `常驻线程池秒级唤醒中 (${pool.concurrency} 核心)...`
   log(`[Mode 3] 触发 Atomics.notify 唤醒常驻线程池...`)
 
-  const { elapsed, results } = await pool.run(TOTAL_TASKS, (completed, total) => {
-    const ratio = completed / total
-    progressFill.style.width = `${(ratio * 100).toFixed(1)}%`
-    statusText.textContent = `多核常驻推进: ${(ratio * 100).toFixed(0)}% (${completed}/${total})`
-  })
+  try {
+    const { elapsed, results } = await pool.run(TOTAL_TASKS, (completed, total) => {
+      const ratio = completed / total
+      progressFill.style.width = `${(ratio * 100).toFixed(1)}%`
+      statusText.textContent = `多核常驻推进: ${(ratio * 100).toFixed(0)}% (${completed}/${total})`
+    })
 
-  globalSink += results[0] + results[TOTAL_TASKS - 1]
+    globalSink += results[0] + results[TOTAL_TASKS - 1]
 
-  statusText.textContent = `多核计算完成（线程已归位休眠），耗时: ${elapsed.toFixed(1)} ms`
-  log(`[Mode 3] 计算结束！耗时仅: ${elapsed.toFixed(1)} ms (零线程创建开销，算完自动休眠)`)
-  setButtonsDisabled(false)
+    statusText.textContent = `多核计算完成（线程已归位休眠），耗时: ${elapsed.toFixed(1)} ms`
+    log(`[Mode 3] 计算结束！耗时仅: ${elapsed.toFixed(1)} ms (零线程创建开销，算完自动休眠)`)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    statusText.textContent = message
+    log(message)
+  } finally {
+    setButtonsDisabled(false)
+  }
 })
+
+if (import.meta.hot) import.meta.hot.dispose(() => pool.destroy())

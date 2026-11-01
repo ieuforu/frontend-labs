@@ -34,7 +34,9 @@ export class VirtualList {
   private resizeObserver: ResizeObserver
 
   private onMetricsUpdate?: (domCount: number, range: [number, number], totalHeight: number) => void
-  private lastRenderedRange: [number, number] = [-1, -1]
+  private frame: number | null = null
+  private destroyed = false
+  private readonly onScroll = () => this.scheduleRender()
 
   constructor(options: VirtualListOptions) {
     this.viewport = options.viewport
@@ -44,6 +46,12 @@ export class VirtualList {
     this.estimatedHeight = options.estimatedHeight
     this.bufferCount = options.bufferCount ?? 5
     this.onMetricsUpdate = options.onMetricsUpdate
+    if (!Number.isFinite(this.estimatedHeight) || this.estimatedHeight <= 0) {
+      throw new RangeError('Estimated height must be positive')
+    }
+    if (!Number.isInteger(this.bufferCount) || this.bufferCount < 0) {
+      throw new RangeError('Buffer count must be a nonnegative integer')
+    }
 
     this.initPositions()
     this.resizeObserver = new ResizeObserver((entries) => {
@@ -51,7 +59,8 @@ export class VirtualList {
     })
 
     this.initDomPool()
-    this.bindScroll()
+    this.resizeObserver.observe(this.viewport)
+    this.viewport.addEventListener('scroll', this.onScroll, { passive: true })
     this.render()
   }
 
@@ -81,7 +90,11 @@ export class VirtualList {
     this.contentBox.innerHTML = ''
     this.domPool = []
 
-    for (let i = 0; i < poolSize; i++) {
+    this.ensurePoolSize(Math.min(poolSize, this.data.length))
+  }
+
+  private ensurePoolSize(poolSize: number) {
+    for (let i = this.domPool.length; i < poolSize; i++) {
       const el = document.createElement('div')
       el.className = 'list-item'
       el.dataset.slotId = i.toString()
@@ -122,35 +135,41 @@ export class VirtualList {
   }
 
   private handleResize(entries: ResizeObserverEntry[]) {
-    let hasChanged = false
+    if (this.destroyed) return
+    const anchor = this.findStartIndex(this.viewport.scrollTop)
+    const anchorOffset = this.viewport.scrollTop - (this.positions[anchor]?.top ?? 0)
+    let firstChanged = this.positions.length
 
     for (const entry of entries) {
       const target = entry.target as HTMLElement
+      if (target === this.viewport) {
+        this.scheduleRender()
+        continue
+      }
       const indexStr = target.dataset.index
-      if (indexStr === undefined) continue
+      if (indexStr === undefined || target.style.display === 'none') continue
 
       const index = parseInt(indexStr, 10)
       const realHeight = entry.borderBoxSize?.[0]?.blockSize ?? target.offsetHeight
 
       const pos = this.positions[index]
-      if (pos && pos.height !== realHeight) {
-        const dVal = realHeight - pos.height
+      if (pos && Number.isFinite(realHeight) && realHeight > 0 && pos.height !== realHeight) {
         pos.height = realHeight
-        pos.bottom += dVal
-
-        for (let j = index + 1; j < this.positions.length; j++) {
-          this.positions[j].top += dVal
-          this.positions[j].bottom += dVal
-        }
-        hasChanged = true
+        firstChanged = Math.min(firstChanged, index)
       }
     }
 
-    if (hasChanged) {
-      const totalH = this.updatePhantomHeight()
-      if (this.onMetricsUpdate) {
-        this.onMetricsUpdate(this.domPool.length, this.lastRenderedRange, totalH)
+    if (firstChanged < this.positions.length) {
+      // Rebuild the affected suffix once per observer batch, rather than once per entry.
+      for (let i = firstChanged; i < this.positions.length; i++) {
+        const pos = this.positions[i]
+        pos.top = i === 0 ? 0 : this.positions[i - 1].bottom
+        pos.bottom = pos.top + pos.height
       }
+      this.updatePhantomHeight()
+      if (this.positions[anchor])
+        this.viewport.scrollTop = this.positions[anchor].top + anchorOffset
+      this.scheduleRender()
     }
   }
 
@@ -169,8 +188,8 @@ export class VirtualList {
     }
     endIndex = Math.min(this.data.length - 1, endIndex + this.bufferCount)
 
-    this.lastRenderedRange = [startIndex, endIndex]
-    const renderCount = endIndex - startIndex + 1
+    const renderCount = Math.max(0, endIndex - startIndex + 1)
+    this.ensurePoolSize(renderCount)
 
     for (let i = 0; i < this.domPool.length; i++) {
       const dom = this.domPool[i]
@@ -203,20 +222,21 @@ export class VirtualList {
     }
   }
 
-  private bindScroll() {
-    let ticking = false
-    this.viewport.addEventListener(
-      'scroll',
-      () => {
-        if (!ticking) {
-          requestAnimationFrame(() => {
-            this.render()
-            ticking = false
-          })
-          ticking = true
-        }
-      },
-      { passive: true },
-    )
+  private scheduleRender() {
+    if (this.destroyed || this.frame !== null) return
+    this.frame = requestAnimationFrame(() => {
+      this.frame = null
+      if (!this.destroyed) this.render()
+    })
+  }
+
+  destroy(): void {
+    if (this.destroyed) return
+    this.destroyed = true
+    this.viewport.removeEventListener('scroll', this.onScroll)
+    if (this.frame !== null) cancelAnimationFrame(this.frame)
+    this.resizeObserver.disconnect()
+    for (const node of this.domPool) node.remove()
+    this.domPool = []
   }
 }
