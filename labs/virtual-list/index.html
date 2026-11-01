@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynamic Virtual List Lab</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        background: #0f172a;
+        color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 30px 20px;
+        gap: 16px;
+      }
+      .panel {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 20px;
+        width: 100%;
+        max-width: 680px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .btn-debug {
+        background: #334155;
+        color: #f8fafc;
+        border: 1px solid #475569;
+        padding: 6px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s;
+      }
+      .btn-debug.active {
+        background: #0284c7;
+        border-color: #38bdf8;
+        color: white;
+      }
+      .telemetry {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        background: #0f172a;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #334155;
+        font-size: 13px;
+      }
+      .telemetry-item div:first-child {
+        color: #94a3b8;
+        font-size: 11px;
+      }
+      .telemetry-item div:last-child {
+        font-weight: bold;
+        color: #38bdf8;
+        margin-top: 2px;
+      }
+      /* 视口外壳 */
+      #viewport {
+        position: relative;
+        width: 100%;
+        height: 520px;
+        overflow-y: auto;
+        background: #090d16;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        will-change: transform;
+      }
+      /* 撑开滚动条的幽灵占位层 */
+      #phantom {
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        z-index: -1;
+      }
+      /* 容纳复用 DOM 节点的真实容器 */
+      #content-box {
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        pointer-events: none;
+      }
+      /* 池化节点样式 */
+      .list-item {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        padding: 12px 16px;
+        border-bottom: 1px solid #1e293b;
+        background: #131c2e;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        pointer-events: auto;
+        box-sizing: border-box;
+        transition:
+          border 0.15s ease,
+          background 0.15s ease;
+      }
+      .list-item-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #38bdf8;
+      }
+      .list-item-desc {
+        font-size: 13px;
+        color: #cbd5e1;
+        line-height: 1.5;
+        word-break: break-all;
+      }
+      .slot-tag {
+        display: none;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        background: #3b82f6;
+        color: white;
+        margin-left: 8px;
+      }
+
+      /* -------------------------------------------------------------
+         调试透视模式：高亮边框、槽位角标与幽灵容器边框
+         ------------------------------------------------------------- */
+      body.debug-mode #viewport {
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 1px #f59e0b;
+      }
+      body.debug-mode #phantom {
+        outline: 2px dashed rgba(245, 158, 11, 0.25);
+        outline-offset: -2px;
+      }
+      body.debug-mode .list-item {
+        border: 2px solid #38bdf8 !important;
+        background: rgba(15, 23, 42, 0.95);
+        margin: 2px 0;
+      }
+      body.debug-mode .slot-tag {
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <div class="header-actions">
+        <h2>万级不定高动态虚拟滚动（100,000 条）</h2>
+        <button id="btn-toggle-debug" class="btn-debug">🔍 开启调试透视模式</button>
+      </div>
+
+      <div class="telemetry">
+        <div class="telemetry-item">
+          <div>总数据量</div>
+          <div id="stat-total">100,000 条</div>
+        </div>
+        <div class="telemetry-item">
+          <div>DOM 真实节点数</div>
+          <div id="stat-dom-count">0</div>
+        </div>
+        <div class="telemetry-item">
+          <div>当前渲染区间</div>
+          <div id="stat-range">[0, 0]</div>
+        </div>
+        <div class="telemetry-item">
+          <div>撑高层高度 (Phantom)</div>
+          <div id="stat-phantom-height">0 px</div>
+        </div>
+      </div>
+
+      <div id="viewport">
+        <div id="phantom"></div>
+        <div id="content-box"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
