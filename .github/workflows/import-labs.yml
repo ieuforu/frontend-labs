@@ -1,0 +1,73 @@
+name: Import lab histories once
+
+# Proposed one-time automatic migration; do not install without explicit approval.
+# The imported tree excludes this workflow and its staging bundle.
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/import-labs.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: import-lab-histories
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    # Only the first run can publish, and only in this destination.
+    if: github.repository == 'ieuforu/frontend-labs' && github.event_name == 'push' && github.run_number == 1
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify and load the prepared history
+        run: |
+          set -eu
+          base64 --decode .migration/frontend-labs.bundle.b64 > "$RUNNER_TEMP/frontend-labs.bundle"
+          git bundle verify "$RUNNER_TEMP/frontend-labs.bundle"
+          git fetch "$RUNNER_TEMP/frontend-labs.bundle" refs/heads/main:refs/remotes/migration/main 'refs/tags/migration/*:refs/tags/migration/*'
+          test "$(git rev-parse migration/main)" = a2762cdddd669161392301a9a0edcc9756bbba02
+          git checkout --detach migration/main
+          git merge-base --is-ancestor e55fd497a997aba0c65525de39c2ffb37738cde4 HEAD
+          git merge-base --is-ancestor 8d8b74e3f603a1e23d5ee42877825195d118ec10 HEAD
+          git merge-base --is-ancestor d7d07b8de32c20b7a1eb3ddc405bfcab731d4d23 HEAD
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+      - name: Publish the checked workspace without rewriting remote history
+        env:
+          SEED_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "$SEED_SHA"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          target_tree=$(git rev-parse 'HEAD^{tree}')
+          test -z "$(git ls-tree -r --name-only "$target_tree" -- .github/workflows/import-labs.yml .migration)"
+          git checkout --detach "$SEED_SHA"
+          git merge --allow-unrelated-histories --no-ff --no-commit -s ours a2762cdddd669161392301a9a0edcc9756bbba02
+
+          # Explicitly remove the privileged import workflow and every staging file.
+          git rm -r -- .github/workflows/import-labs.yml .migration
+          git read-tree --reset -u "$target_tree"
+          test ! -e .github/workflows/import-labs.yml
+          test ! -d .migration
+          test "$(git write-tree)" = "$target_tree"
+
+          git commit -m "chore: finish lab migration and remove the privileged import workflow"
+          git push --atomic origin HEAD:refs/heads/main refs/tags/migration/task-slicer-lab refs/tags/migration/thread-pool-lab refs/tags/migration/virtual-list-lab
+          printf 'Published %s after pnpm check; import workflow and staging files removed.\n' "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
