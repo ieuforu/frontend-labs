@@ -1,0 +1,293 @@
+.experiment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 24px 0 36px;
+  color: #787774;
+  font-size: 12px;
+}
+
+.experiment-meta span + span::before {
+  content: '/';
+  margin-right: 22px;
+  color: #c5c4bf;
+}
+
+.experiment-section {
+  margin-top: 30px;
+}
+
+.experiment-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #e9e9e7;
+}
+
+.experiment-section-heading h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.experiment-caption {
+  margin: 0;
+  color: #787774;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.experiment-monitor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 28px;
+  padding: 20px 22px;
+  background: #f7f7f5;
+  border: 1px solid #efefec;
+  border-radius: 5px;
+}
+
+.experiment-meter {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.experiment-meter canvas {
+  flex: 0 0 48px;
+}
+
+.fps-text {
+  margin-bottom: 3px;
+  font-size: 25px;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #44765b;
+}
+
+.experiment-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #5f5e59;
+}
+
+.experiment-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #deded9;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  color: #37352f;
+}
+
+.experiment-input input::placeholder {
+  color: #92918c;
+}
+
+.experiment-environment {
+  margin: 12px 0 0;
+  color: #787774;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.experiment-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.experiment-actions--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.experiment-actions--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.experiment-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 45px;
+  padding: 11px 13px;
+  border: 1px solid #deded9;
+  border-radius: 4px;
+  background: #fff;
+  color: #37352f;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.experiment-action::before {
+  content: attr(data-step);
+  color: #92918c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.experiment-action:hover {
+  border-color: #bdbcb5;
+  background: #f7f7f5;
+}
+
+.experiment-action--primary {
+  border-color: #37352f;
+  background: #37352f;
+  color: #fff;
+}
+
+.experiment-action--primary::before {
+  color: #c3c2bc;
+}
+
+.experiment-action--primary:hover:not(:disabled) {
+  border-color: #24231f;
+  background: #24231f;
+}
+
+.experiment-action[aria-pressed='true'] {
+  background: #f5ede2;
+  border-color: #c5ad89;
+  color: #805e32;
+}
+
+.experiment-action:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
+.experiment-hint {
+  margin: 12px 0 22px;
+  color: #787774;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.experiment-progress {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #eeeee9;
+}
+
+.experiment-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: #748973;
+}
+
+.experiment-status {
+  margin-top: 10px;
+  min-height: 24px;
+  color: #5f5e59;
+  font-size: 13px;
+  line-height: 1.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.experiment-log {
+  min-height: 82px;
+  max-height: 210px;
+  overflow: auto;
+  padding: 16px 18px;
+  border: 1px solid #eeeee9;
+  border-radius: 4px;
+  background: #f7f7f5;
+  color: #68665f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.experiment-log:empty::before {
+  content: '运行一次实验，记录会出现在这里。';
+  color: #92918c;
+  font-family: inherit;
+}
+
+.experiment-notes {
+  margin-top: 30px;
+  padding-top: 18px;
+  border-top: 1px solid #e9e9e7;
+  color: #787774;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.experiment-notes summary {
+  cursor: pointer;
+  color: #5f5e59;
+}
+
+.experiment-notes ul {
+  margin: 12px 0 0;
+  padding-left: 22px;
+}
+
+.experiment-notes li + li {
+  margin-top: 6px;
+}
+
+@media (max-width: 1100px) {
+  .experiment-actions--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .experiment-meta {
+    gap: 6px 14px;
+    margin-bottom: 28px;
+    font-size: 11px;
+  }
+
+  .experiment-meta span + span::before {
+    margin-right: 14px;
+  }
+
+  .experiment-monitor {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 18px;
+  }
+
+  .experiment-section-heading {
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .experiment-section-heading .experiment-caption {
+    text-align: right;
+    font-size: 11px;
+  }
+
+  .experiment-actions--three {
+    grid-template-columns: 1fr;
+  }
+
+  .experiment-action {
+    padding: 10px;
+    gap: 7px;
+    font-size: 12px;
+  }
+}

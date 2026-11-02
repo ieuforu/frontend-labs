@@ -1,156 +1,118 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Thread Pool & SharedArrayBuffer Lab</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        background: #0f172a;
-        color: #f8fafc;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 40px 20px;
-        gap: 20px;
-      }
-      .panel {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 24px;
-        width: 100%;
-        max-width: 680px;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-      .monitor-box {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        background: #0f172a;
-        padding: 16px;
-        border-radius: 6px;
-        border: 1px solid #334155;
-      }
-      .fps-text {
-        font-size: 24px;
-        font-weight: bold;
-        color: #38bdf8;
-      }
-      .btn-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 12px;
-      }
-      button {
-        padding: 14px 10px;
-        border: none;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 13px;
-        cursor: pointer;
-        transition: opacity 0.2s;
-      }
-      button:active {
-        opacity: 0.8;
-      }
-      button:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-      }
-      .btn-block {
-        background: #ef4444;
-        color: white;
-      }
-      .btn-slice {
-        background: #eab308;
-        color: #0f172a;
-      }
-      .btn-worker {
-        background: #10b981;
-        color: white;
-      }
-      input {
-        width: 100%;
-        padding: 12px;
-        background: #0f172a;
-        border: 1px solid #475569;
-        border-radius: 6px;
-        color: #f8fafc;
-        font-size: 14px;
-      }
-      .progress-bar-bg {
-        width: 100%;
-        height: 14px;
-        background: #0f172a;
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      .progress-bar-fill {
-        height: 100%;
-        width: 0%;
-        background: #38bdf8;
-        transition: width 0.05s linear;
-      }
-      #status {
-        font-size: 14px;
-        color: #38bdf8;
-      }
-      #log {
-        font-size: 12px;
-        color: #94a3b8;
-        white-space: pre-wrap;
-        max-height: 200px;
-        overflow-y: auto;
-        background: #0f172a;
-        padding: 12px;
-        border-radius: 6px;
-        line-height: 1.5;
-      }
-    </style>
+    <meta
+      name="description"
+      content="比较同步阻塞、协作式切片和 Worker 线程池，观察浏览器计算与交互的取舍。"
+    />
+    <link rel="icon" href="/favicon.svg" />
+    <title>线程池 · Frontend Labs</title>
   </head>
-  <body>
-    <div class="panel">
-      <h2>主线程实时状态探测仪</h2>
-      <div class="monitor-box">
-        <canvas id="raf-spinner" width="48" height="48"></canvas>
-        <div>
-          <div class="fps-text" id="fps-val">-- FPS</div>
-          <div id="isolation-status" style="font-size: 12px; color: #94a3b8">环境检测中...</div>
+  <body data-page="thread-pool">
+    <div data-page-content>
+      <header class="page-header">
+        <div class="page-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="15" y="4" width="10" height="9" rx="2" />
+            <rect x="3" y="26" width="9" height="9" rx="2" />
+            <rect x="15.5" y="26" width="9" height="9" rx="2" />
+            <rect x="28" y="26" width="9" height="9" rx="2" />
+            <path d="M20 13v13M7.5 26v-6h25v6" />
+          </svg>
         </div>
+        <p class="page-eyebrow">实验 03 / Parallelism</p>
+        <h1>让计算各就各位。</h1>
+        <p class="page-description">
+          同一份计算，交给主线程、时间切片或 Worker 线程池。比较完成时间，也观察页面是否仍能响应。
+        </p>
+      </header>
+
+      <div class="experiment-meta" aria-label="实验信息">
+        <span>Worker 线程池</span><span>300,000 个计算单元</span><span>共享内存</span>
       </div>
 
-      <div>
-        <label style="display: block; margin-bottom: 6px; font-size: 13px"
-          >实时交互测试（高负载运行时敲击键盘）：</label
-        >
-        <input type="text" placeholder="主线程被卡死时此处将彻底锁死无法输入..." />
-      </div>
+      <section class="experiment-section" aria-labelledby="monitor-heading">
+        <div class="experiment-section-heading">
+          <h2 id="monitor-heading">先观察，再运行</h2>
+          <span class="experiment-caption">主线程监视器</span>
+        </div>
+        <div class="experiment-monitor">
+          <div class="experiment-meter">
+            <canvas id="raf-spinner" width="48" height="48" aria-hidden="true"></canvas>
+            <div>
+              <div class="fps-text" id="fps-val">-- FPS</div>
+              <p class="experiment-caption">rAF 采样 · 观察交互是否被阻塞</p>
+            </div>
+          </div>
+          <div class="experiment-input">
+            <label for="interaction-test">运行时，试着在这里打字</label>
+            <input
+              id="interaction-test"
+              type="text"
+              placeholder="比较三种方式下的输入响应…"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+        <p id="isolation-status" class="experiment-environment" role="status">
+          正在检查浏览器环境…
+        </p>
+      </section>
+
+      <section class="experiment-section" aria-labelledby="controls-heading">
+        <div class="experiment-section-heading">
+          <h2 id="controls-heading">选择一种运行方式</h2>
+          <span class="experiment-caption">逐个运行，比较体感</span>
+        </div>
+        <div class="experiment-actions experiment-actions--three">
+          <button id="btn-block" class="experiment-action" data-step="01">同步阻塞</button>
+          <button id="btn-slice" class="experiment-action" data-step="02">协作式切片</button>
+          <button
+            id="btn-worker"
+            class="experiment-action experiment-action--primary"
+            data-step="03"
+          >
+            Worker 并行
+          </button>
+        </div>
+        <p class="experiment-hint">
+          同步模式会暂时阻塞页面；切片模式每约 5 ms 让出主线程；Worker 模式在独立线程中计算。
+        </p>
+        <div class="experiment-progress" aria-hidden="true">
+          <div id="progress" class="experiment-progress-fill"></div>
+        </div>
+        <div id="status" class="experiment-status" role="status" aria-live="polite">
+          就绪，选择一种方式开始。
+        </div>
+      </section>
+
+      <section class="experiment-section" aria-labelledby="log-heading">
+        <div class="experiment-section-heading">
+          <h2 id="log-heading">运行记录</h2>
+          <span class="experiment-caption">最新记录在上方</span>
+        </div>
+        <div
+          id="log"
+          class="experiment-log"
+          role="region"
+          aria-label="线程池运行记录"
+          tabindex="0"
+        ></div>
+      </section>
+
+      <details class="experiment-notes">
+        <summary>如何理解这些结果？</summary>
+        <ul>
+          <li>三种方式使用相同的计算函数和任务数量，但调度、通信与结果汇总的开销不同。</li>
+          <li>线程池会提前创建 Worker 并分配共享内存，展示的运行耗时不包含这部分初始化。</li>
+          <li>
+            FPS 与耗时取决于当前设备和浏览器。并行并不保证更快，也不能只用总耗时判断交互体验。
+          </li>
+        </ul>
+      </details>
     </div>
-
-    <div class="panel">
-      <h2>架构性能三方对比实验 (300,000 计算单元)</h2>
-      <div class="btn-grid">
-        <button id="btn-block" class="btn-block">1. 单线程同步阻塞</button>
-        <button id="btn-slice" class="btn-slice">2. 协作式切片调度</button>
-        <button id="btn-worker" class="btn-worker">3. SAB 多核并行计算</button>
-      </div>
-
-      <div class="progress-bar-bg">
-        <div id="progress" class="progress-bar-fill"></div>
-      </div>
-      <div id="status">就绪 (等待选择运行方案)</div>
-      <div id="log"></div>
-    </div>
-
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

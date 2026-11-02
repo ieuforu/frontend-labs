@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="三个可以亲手运行的前端实验：虚拟列表、任务切片与 Worker 线程池。观察过程，测量结果，阅读实现。"
+    />
+    <link rel="icon" href="/favicon.svg" />
+    <title>Frontend Labs · 前端实验笔记</title>
+  </head>
+  <body data-page="home">
+    <div data-page-content>
+      <header class="page-header home-header">
+        <div class="notebook-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <rect
+              x="13"
+              y="8"
+              width="40"
+              height="49"
+              rx="4"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M23 8v49M10 18h7M10 29h7M10 40h7M32 22h13M32 29h13M32 36h8"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <p class="page-eyebrow">A SMALL NOTEBOOK OF FRONTEND EXPERIMENTS</p>
+        <h1>Frontend Labs</h1>
+        <p class="home-intro">把原理拆开，亲手试一试。</p>
+        <p class="page-description">
+          列表为什么能只渲染一小部分？长任务如何让出主线程？<br
+            class="desktop-break"
+          />在这里，换一种实现，看看浏览器里发生了什么。
+        </p>
+        <div class="notebook-meta">
+          <span><span class="small-status" aria-hidden="true"></span>3 个可交互实验</span
+          ><span>TypeScript · Web APIs</span
+          ><a href="https://github.com/ieuforu/frontend-labs" target="_blank" rel="noreferrer"
+            >开源笔记 ↗</a
+          >
+        </div>
+      </header>
+
+      <section aria-labelledby="experiments-title" class="catalog">
+        <div class="section-heading">
+          <h2 id="experiments-title">实验目录</h2>
+          <span class="catalog-note">从一个好奇的问题开始</span>
+        </div>
+        <div class="catalog-tabs">
+          <span>全部实验 <span class="catalog-count">3</span></span
+          ><span class="catalog-view" aria-hidden="true">▦ &nbsp; 画廊视图</span>
+        </div>
+        <div class="experiment-grid">
+          <a class="experiment-card" href="/virtual-list/">
+            <div class="card-preview list-preview" aria-hidden="true">
+              <div class="preview-label">RENDER WHAT YOU SEE</div>
+              <div class="mini-list">
+                <span></span><span></span><span class="in-view"></span><span class="in-view"></span
+                ><span></span>
+              </div>
+              <div class="mini-scroll"><i></i></div>
+              <span class="preview-annotation">只保留可见区域</span>
+            </div>
+            <div class="card-content">
+              <span class="card-index">01 / RENDERING</span>
+              <h3>
+                <span data-icon="virtual-list"></span>虚拟列表<span
+                  class="card-arrow"
+                  aria-hidden="true"
+                  >↗</span
+                >
+              </h3>
+              <p>列表有很多行，页面真的需要<br />那么多 DOM 节点吗？</p>
+              <div class="card-tags"><span>DOM 复用</span><span>不定高测量</span></div>
+            </div>
+          </a>
+          <a class="experiment-card" href="/task-slicer/">
+            <div class="card-preview slicer-preview" aria-hidden="true">
+              <div class="preview-label">MAKE ROOM TO RESPOND</div>
+              <div class="mini-timeline">
+                <div><span>任务</span><i class="long-task"></i></div>
+                <div><span>切片</span><i></i><i></i><i></i><i></i></div>
+                <div class="timeline-input"><span>交互</span><b>↓</b><b>↓</b><b>↓</b></div>
+              </div>
+              <span class="preview-annotation">在间隙里，响应交互</span>
+            </div>
+            <div class="card-content">
+              <span class="card-index">02 / SCHEDULING</span>
+              <h3>
+                <span data-icon="task-slicer"></span>任务切片<span
+                  class="card-arrow"
+                  aria-hidden="true"
+                  >↗</span
+                >
+              </h3>
+              <p>计算还没结束，能不能先<br />响应一下用户的操作？</p>
+              <div class="card-tags"><span>优先级</span><span>协作式调度</span></div>
+            </div>
+          </a>
+          <a class="experiment-card" href="/thread-pool/">
+            <div class="card-preview pool-preview" aria-hidden="true">
+              <div class="preview-label">SHARE THE WORK</div>
+              <div class="mini-pool">
+                <span class="pool-main">Main thread</span>
+                <div class="pool-lines"></div>
+                <div class="pool-workers"><i>W₁</i><i>W₂</i><i>W₃</i></div>
+              </div>
+              <span class="preview-annotation">把计算交给 Worker</span>
+            </div>
+            <div class="card-content">
+              <span class="card-index">03 / CONCURRENCY</span>
+              <h3>
+                <span data-icon="thread-pool"></span>线程池<span
+                  class="card-arrow"
+                  aria-hidden="true"
+                  >↗</span
+                >
+              </h3>
+              <p>同一份计算，放到多个<br />Worker 里会有什么不同？</p>
+              <div class="card-tags"><span>Web Workers</span><span>共享内存</span></div>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <section class="start-note" aria-labelledby="start-title">
+        <span class="note-symbol" aria-hidden="true">↳</span>
+        <div>
+          <h3 id="start-title">第一次来？从虚拟列表开始。</h3>
+          <p>
+            先选 500 条，运行一次对照。观察节点数量，再看看实际测量的时间。<br />每个实验都可以直接操作，也可以沿着源码继续读下去。
+          </p>
+          <a href="/virtual-list/">打开第一个实验 <span aria-hidden="true">→</span></a>
+        </div>
+      </section>
+      <section class="reading-notes" aria-label="实验说明">
+        <div>
+          <h3>观察过程，也保留疑问</h3>
+          <p>
+            切换实现、调整规模，再比较结果。这里记录的是可复现的小实验，不是适用于所有场景的性能结论。
+          </p>
+        </div>
+        <div>
+          <h3>在你自己的浏览器里运行</h3>
+          <p>
+            无需注册，也无需 API
+            key。测量会受到设备、浏览器和当前负载影响，原始结果比一个漂亮的倍数更有用。
+          </p>
+        </div>
+      </section>
+      <footer class="page-footer">
+        <span>Frontend Labs · 一份持续生长的实验笔记</span
+        ><a href="https://github.com/ieuforu" target="_blank" rel="noreferrer">Made by ieuforu ↗</a>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

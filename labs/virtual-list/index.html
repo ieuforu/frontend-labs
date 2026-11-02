@@ -4,15 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.svg" />
-    <title>Virtual List · Frontend Labs</title>
+    <meta
+      name="description"
+      content="同一份不定高文本，比较全量 DOM 与虚拟列表的节点复用，记录实际测量结果。"
+    />
+    <title>虚拟列表 · Frontend Labs</title>
   </head>
-  <body>
-    <main class="panel">
-      <header class="header-actions">
+  <body data-page="virtual-list">
+    <div class="virtual-page" data-page-content>
+      <header class="header-actions page-header">
         <div>
-          <p class="eyebrow">FRONTEND LABS / 03</p>
-          <h1>动态虚拟列表</h1>
-          <p class="subtitle">同一份不定高文本，比较全量 DOM 与节点复用。</p>
+          <div class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="8" y="4" width="24" height="32" rx="3" />
+              <path d="M14 13h12M14 20h12M14 27h8" />
+            </svg>
+          </div>
+          <p class="page-eyebrow">实验 01 / Rendering</p>
+          <h1>只渲染眼前的几行。</h1>
+          <p class="page-description">同一份不定高文本，比较全量 DOM 与节点复用。</p>
         </div>
         <button id="btn-toggle-debug" class="btn-debug" aria-pressed="false">开启调试透视</button>
       </header>
@@ -74,7 +84,7 @@
       <section class="results" aria-labelledby="results-title">
         <div class="header-actions">
           <div>
-            <p class="eyebrow">MEASURE, DON'T GUESS</p>
+            <p class="page-eyebrow">RESULTS / 当前浏览器</p>
             <h2 id="results-title">当前环境的测量</h2>
           </div>
           <button id="export-results" class="btn-debug" disabled>导出 JSON</button>
@@ -82,7 +92,7 @@
         <p id="measurement-status" role="status" aria-live="polite">
           先各预热一次，再交替测量三轮。运行时请保持窗口大小与页面可见性不变。
         </p>
-        <p id="result-context" class="muted">尚未运行，不预填性能数字。</p>
+        <p id="result-context" class="muted">运行一次对照后，测量结果会出现在这里。</p>
         <div class="table-scroll">
           <table>
             <caption>
@@ -163,7 +173,7 @@
           条在低性能设备上仍可能短暂停顿；停止按钮会在同步工作返回后响应。
         </p>
       </details>
-      <footer>
+      <footer class="page-footer">
         <span>TypeScript · DOM · ResizeObserver</span
         ><a
           href="https://github.com/ieuforu/frontend-labs/tree/main/labs/virtual-list"
@@ -172,7 +182,7 @@
           >源码与实现说明 ↗</a
         >
       </footer>
-    </main>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

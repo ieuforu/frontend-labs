@@ -1,3 +1,5 @@
+import '../../../shared/shell.ts'
+import '../../../shared/experiments.css'
 import { TaskScheduler, PriorityLevel } from './scheduler.ts'
 
 const btnBg = document.getElementById('btn-bg') as HTMLButtonElement
@@ -21,7 +23,7 @@ scheduler.onStarvationResolved = (task, waitTimeMs) => {
   if (!starvationAlertLogged) {
     starvationAlertLogged = true
     log(
-      `⚠️ [防饥饿触发] Task #${task.id} 耗时/等待已达 ${waitTimeMs.toFixed(0)}ms (超过 800ms 阈值)，剥夺让出权强制同步冲刷到底！`,
+      `[防饥饿触发] Task #${task.id} 耗时/等待已达 ${waitTimeMs.toFixed(0)}ms (超过 800ms 阈值)，将同步完成剩余计算。`,
     )
   }
 }
@@ -35,7 +37,7 @@ function animateMonitor(now: number) {
   if (now - lastFrameTime >= 500) {
     const currentFps = Math.round((frameCount * 1000) / (now - lastFrameTime))
     fpsVal.textContent = `${currentFps} FPS`
-    fpsVal.style.color = currentFps < 30 ? '#ef4444' : '#38bdf8'
+    fpsVal.style.color = currentFps < 30 ? '#a56552' : '#44765b'
     frameCount = 0
     lastFrameTime = now
   }
@@ -49,7 +51,7 @@ function animateMonitor(now: number) {
   sCtx.beginPath()
   sCtx.arc(0, 0, 18, 0, Math.PI * 1.4)
   sCtx.lineWidth = 4
-  sCtx.strokeStyle = '#38bdf8'
+  sCtx.strokeStyle = '#44765b'
   sCtx.lineCap = 'round'
   sCtx.stroke()
   sCtx.restore()
@@ -78,7 +80,7 @@ let bgAbortController: AbortController | null = null
 
 // 1. 启动后台切片任务
 btnBg.addEventListener('click', () => {
-  if (backgroundIndex > 0 && backgroundIndex < TOTAL_UNITS) {
+  if (bgAbortController !== null) {
     log('后台任务正在运行中...')
     return
   }
@@ -122,7 +124,7 @@ btnBg.addEventListener('click', () => {
 
 // 2. 突发单次高优操作插队
 btnUrgent.addEventListener('click', () => {
-  log(`⚡ [UserBlocking] 单次高优用户任务突发插队！`)
+  log(`[UserBlocking] 高优任务入队。`)
   scheduler.postTask(
     () => {
       const t0 = performance.now()
@@ -130,7 +132,7 @@ btnUrgent.addEventListener('click', () => {
       for (let i = 0; i < 2000; i++) acc += heavyWorkUnit(i)
       globalSink += acc
       const cost = performance.now() - t0
-      log(`⚡⚡ [UserBlocking] 高优任务处理完毕！耗时: ${cost.toFixed(2)} ms`)
+      log(`[UserBlocking] 高优任务处理完成。耗时: ${cost.toFixed(2)} ms`)
       return false
     },
     { priority: PriorityLevel.UserBlocking },
@@ -141,7 +143,7 @@ btnUrgent.addEventListener('click', () => {
 btnCancel.addEventListener('click', () => {
   if (bgAbortController) {
     bgAbortController.abort()
-    log(`🛑 [Abort] 外部发出取消信号，后台任务已主动终止！`)
+    log(`[Abort] 收到取消信号，后台任务已停止。`)
     statusText.textContent = `任务已取消（停止于 ${((backgroundIndex / TOTAL_UNITS) * 100).toFixed(
       1,
     )}%）`
@@ -176,14 +178,16 @@ function scheduleNextFloodTask() {
 btnStarve.addEventListener('click', () => {
   if (isFlooding) {
     isFlooding = false
-    btnStarve.textContent = '4. 持续高优压制 (测试防饥饿)'
+    btnStarve.textContent = '持续高优压制'
+    btnStarve.setAttribute('aria-pressed', 'false')
     log('已停止高优压制。')
     return
   }
 
   isFlooding = true
-  btnStarve.textContent = '正在持续高优压制中 (点击停止)...'
-  log('💣 开启持续高优压制链：连续投递 UserBlocking 霸占主线程...')
+  btnStarve.textContent = '停止高优压制'
+  btnStarve.setAttribute('aria-pressed', 'true')
+  log('[UserBlocking] 开始连续投递高优任务，再次点击可停止。')
   scheduleNextFloodTask()
 })
 

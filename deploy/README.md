@@ -1,8 +1,9 @@
 # Static deployment
 
-The three labs are served by the existing Caddy service at:
+The landing page and three labs are served by the existing Caddy service at:
 
-- [Virtual List](https://labs.selena.ink/virtual-list/) (default entry)
+- [Home](https://labs.selena.ink/) (default entry)
+- [Virtual List](https://labs.selena.ink/virtual-list/)
 - [Task Slicer](https://labs.selena.ink/task-slicer/)
 - [Thread Pool](https://labs.selena.ink/thread-pool/)
 
@@ -11,21 +12,27 @@ the visitor's browser. The VPS only serves static files.
 
 ## Build
 
-Run checks first, then build the final assets with their public path prefixes:
+Run checks first, then build and assemble the final site with its public path prefixes:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm check
-VITE_SOURCE_REVISION=$(git rev-parse HEAD) pnpm --filter virtual-list-lab exec vite build --base=/virtual-list/
-pnpm --filter task-slicer-lab exec vite build --base=/task-slicer/
-pnpm --filter thread-pool-lab exec vite build --base=/thread-pool/
+pnpm build:site
 ```
 
-`pnpm check` and ordinary build commands use `/` as the base and would overwrite
-these artifacts. Do not run them after the final prefixed build when packaging.
+`build:site` builds `labs/home` at `/` and the three labs at `/virtual-list/`,
+`/task-slicer/` and `/thread-pool/`. It assembles a complete deployment in root
+`dist/`, including the hashed assets and Worker scripts. All navigation uses
+these public paths. Individual lab dev servers only serve the current lab.
 
-Copy each `labs/<name>/dist/` into the matching `<name>/` directory under a new
-release's `site/` directory. Keep release metadata and checksums outside `site/`.
+The script records the current Git commit in Virtual List exports. Build after
+committing the source being deployed, or explicitly provide `VITE_SOURCE_REVISION`
+when building a source archive without Git metadata. CI runs both `pnpm check`
+and `pnpm build:site`.
+
+Copy the contents of root `dist/` into a new release's `site/` directory. Keep
+release metadata and checksums outside `site/`. Package root `dist/`, not the
+individual lab build directories, which ordinary build commands can overwrite.
 
 ## Server layout
 
@@ -39,14 +46,21 @@ Install the Caddy include only on the first deployment or when its configuration
 changes; validate the complete `/etc/caddy/Caddyfile` before reloading Caddy.
 Preserve other sites and keep the prior release for rollback.
 
+When updating from the original three-lab deployment, remove the old root-to-
+Virtual-List redirect by installing the updated Caddy include. `/` now serves the
+landing document directly. Root `/assets/*` uses the same immutable cache policy
+as the lab asset directories; documents use `no-cache`.
+
 Thread Pool requires HTTPS and the COOP/COEP headers on both its document and
 Worker assets. Keep the URL prefixes intact; `handle_path` would strip them.
 There is no SPA fallback: missing scripts must return 404, not HTML.
 
 ## Verify and roll back
 
-Verify all three HTTPS entries, redirects, asset checksums/MIME types and missing
-asset 404s. Check that Thread Pool reports cross-origin isolation and completes
+Verify all four HTTPS entries, navigation between pages, asset checksums/MIME
+types and missing asset 404s. `/` must return the landing page with HTTP 200; lab
+paths without a trailing slash must redirect to their directory URLs. Check that
+Thread Pool reports cross-origin isolation and completes
 successive Worker batches. Run a Virtual List comparison and confirm the exported
 source revision. Confirm Task Slicer can run, prioritize and cancel work.
 

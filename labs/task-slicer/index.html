@@ -1,162 +1,108 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Task Slicer Lab</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        background: #0f172a;
-        color: #f8fafc;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 40px 20px;
-        gap: 20px;
-      }
-      .panel {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 24px;
-        width: 100%;
-        max-width: 640px;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-      .monitor-box {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        background: #0f172a;
-        padding: 16px;
-        border-radius: 6px;
-        border: 1px solid #334155;
-      }
-      .fps-text {
-        font-size: 24px;
-        font-weight: bold;
-        color: #38bdf8;
-      }
-      .btn-group {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-      }
-      button {
-        padding: 14px;
-        border: none;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 13px;
-        cursor: pointer;
-        transition: opacity 0.2s;
-      }
-      button:active {
-        opacity: 0.8;
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .btn-bg {
-        background: #10b981;
-        color: white;
-      }
-      .btn-urgent {
-        background: #ef4444;
-        color: white;
-      }
-      .btn-cancel {
-        background: #eab308;
-        color: #0f172a;
-      }
-      .btn-starve {
-        background: #8b5cf6;
-        color: white;
-      }
-      input {
-        width: 100%;
-        padding: 12px;
-        background: #0f172a;
-        border: 1px solid #475569;
-        border-radius: 6px;
-        color: #f8fafc;
-        font-size: 14px;
-      }
-      .progress-bar-bg {
-        width: 100%;
-        height: 14px;
-        background: #0f172a;
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      .progress-bar-fill {
-        height: 100%;
-        width: 0%;
-        background: #38bdf8;
-      }
-      #status {
-        font-size: 14px;
-        color: #38bdf8;
-      }
-      #log {
-        font-size: 12px;
-        color: #94a3b8;
-        white-space: pre-wrap;
-        max-height: 180px;
-        overflow-y: auto;
-        background: #0f172a;
-        padding: 12px;
-        border-radius: 6px;
-        line-height: 1.5;
-      }
-    </style>
+    <meta name="description" content="把长任务拆成切片，观察优先级、任务取消与主线程响应。" />
+    <link rel="icon" href="/favicon.svg" />
+    <title>任务切片 · Frontend Labs</title>
   </head>
-  <body>
-    <div class="panel">
-      <h2>主线程实时状态探测仪</h2>
-      <div class="monitor-box">
-        <canvas id="raf-spinner" width="48" height="48"></canvas>
-        <div>
-          <div class="fps-text" id="fps-val">-- FPS</div>
-          <div style="font-size: 12px; color: #94a3b8">
-            基于 requestAnimationFrame 逐帧驱动。主线程卡死时指针瞬间定格。
+  <body data-page="task-slicer">
+    <div data-page-content>
+      <header class="page-header">
+        <div class="page-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="5" y="9" width="30" height="22" rx="3" />
+            <path d="M15 9v22M25 9v22M9 20h2m8 0h2m8 0h2" />
+          </svg>
+        </div>
+        <p class="page-eyebrow">实验 02 / Scheduling</p>
+        <h1>把时间还给交互。</h1>
+        <p class="page-description">
+          把一段长计算拆成小块，给输入和绘制留出机会。试着插入高优任务，看看调度顺序如何变化。
+        </p>
+      </header>
+
+      <div class="experiment-meta" aria-label="实验信息">
+        <span>任务切片</span><span>300,000 个计算单元</span><span>优先级与取消</span>
+      </div>
+
+      <section class="experiment-section" aria-labelledby="monitor-heading">
+        <div class="experiment-section-heading">
+          <h2 id="monitor-heading">先观察，再运行</h2>
+          <span class="experiment-caption">主线程监视器</span>
+        </div>
+        <div class="experiment-monitor">
+          <div class="experiment-meter">
+            <canvas id="raf-spinner" width="48" height="48" aria-hidden="true"></canvas>
+            <div>
+              <div class="fps-text" id="fps-val">-- FPS</div>
+              <p class="experiment-caption">rAF 采样 · 观察交互是否被阻塞</p>
+            </div>
+          </div>
+          <div class="experiment-input">
+            <label for="interaction-test">运行时，试着在这里打字</label>
+            <input
+              id="interaction-test"
+              type="text"
+              placeholder="写下你观察到的变化…"
+              autocomplete="off"
+            />
           </div>
         </div>
-      </div>
+      </section>
 
-      <div>
-        <label style="display: block; margin-bottom: 6px; font-size: 13px"
-          >交互响应测试（在计算运行时尝试打字）：</label
-        >
-        <input type="text" placeholder="主线程卡死时这里完全敲不进字..." />
-      </div>
+      <section class="experiment-section" aria-labelledby="controls-heading">
+        <div class="experiment-section-heading">
+          <h2 id="controls-heading">任务控制台</h2>
+          <span class="experiment-caption">从后台任务开始</span>
+        </div>
+        <div class="experiment-actions experiment-actions--four">
+          <button id="btn-bg" class="experiment-action experiment-action--primary" data-step="01">
+            启动后台任务
+          </button>
+          <button id="btn-urgent" class="experiment-action" data-step="02">插入高优任务</button>
+          <button id="btn-cancel" class="experiment-action" data-step="03">取消后台任务</button>
+          <button id="btn-starve" class="experiment-action" data-step="04" aria-pressed="false">
+            持续高优压制
+          </button>
+        </div>
+        <p class="experiment-hint">
+          后台计算运行时，可以插队或取消。开启持续压制后，再点一次即可停止。
+        </p>
+        <div class="experiment-progress" aria-hidden="true">
+          <div id="progress" class="experiment-progress-fill"></div>
+        </div>
+        <div id="status" class="experiment-status" role="status" aria-live="polite">
+          就绪，等待开始任务。
+        </div>
+      </section>
+
+      <section class="experiment-section" aria-labelledby="log-heading">
+        <div class="experiment-section-heading">
+          <h2 id="log-heading">运行记录</h2>
+          <span class="experiment-caption">最新记录在上方</span>
+        </div>
+        <div
+          id="log"
+          class="experiment-log"
+          role="region"
+          aria-label="任务运行记录"
+          tabindex="0"
+        ></div>
+      </section>
+
+      <details class="experiment-notes">
+        <summary>这个实验在观察什么？</summary>
+        <ul>
+          <li>切片之间让出主线程，为其他任务和页面交互提供执行机会。</li>
+          <li>
+            高优任务会优先处理；后台任务等待超过 800 ms 后会触发防饥饿处理，可能短暂阻塞页面。
+          </li>
+          <li>FPS 是当前浏览器的 rAF 采样值，耗时会受到设备、页面可见性和其他任务影响。</li>
+        </ul>
+      </details>
     </div>
-
-    <div class="panel">
-      <h2>长任务实验控制台</h2>
-      <div class="btn-group">
-        <button id="btn-bg" class="btn-bg">1. 启动后台切片 (Background)</button>
-        <button id="btn-urgent" class="btn-urgent">2. 插队高优操作 (UserBlocking)</button>
-        <button id="btn-cancel" class="btn-cancel">3. 取消后台任务 (Abort)</button>
-        <button id="btn-starve" class="btn-starve">4. 持续高优压制 (测试防饥饿)</button>
-      </div>
-
-      <div class="progress-bar-bg">
-        <div id="progress" class="progress-bar-fill"></div>
-      </div>
-      <div id="status">就绪 (等待任务触发)</div>
-      <div id="log"></div>
-    </div>
-
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

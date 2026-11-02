@@ -1,6 +1,7 @@
 # Frontend Labs
 
 三个可以独立运行的浏览器实验：协作调度、多线程计算、动态虚拟滚动。
+从[实验首页](https://labs.selena.ink/)选择一个开始，通过侧边导航切换实验。
 关注实现原理、可观察行为和限制，适合学习与验证想法。
 
 | 实验                                        | 问题                                  | 启动               |
@@ -21,6 +22,7 @@ pnpm dev:task
 ```
 
 打开终端输出的 Vite 地址。每个实验保留自己的 HTML、源码、构建产物和运行入口。
+`pnpm dev:home` 单独开发首页；独立开发服务器只提供当前页面，跨实验导航需要组合部署。
 也可以直接使用原包名：
 
 ```sh
@@ -35,7 +37,7 @@ pnpm --filter task-slicer-lab preview
 pnpm check
 ```
 
-依次执行格式检查、三个实验的 TypeScript 检查、回归测试和生产构建。
+依次执行格式检查、首页和三个实验的 TypeScript 检查、回归测试和生产构建。
 构建产物分别位于 `labs/*/dist`。根目录统一维护依赖、锁文件和基础配置。
 
 测试使用 Node.js 内置测试运行器。线程池测试通过一层消息适配运行真实 Worker 线程和原始计算代码；
@@ -55,10 +57,12 @@ Virtual List 另提供同一视口下的普通列表/虚拟列表对照：有界
 
 ## 部署
 
-三个 `dist` 都可以作为独立静态站点部署。Thread Pool 额外要求安全上下文与跨源隔离；
+运行 `pnpm build:site`，将首页和三个实验按正式路径构建并组合到根目录 `dist/`。
+将该目录整体部署为静态站点即可保留统一导航。Thread Pool 额外要求安全上下文与跨源隔离；
 其 Vite dev/preview 已配置响应头，生产服务器必须自行配置。详见该实验说明。
 
-线上入口：[Virtual List](https://labs.selena.ink/virtual-list/)、
+线上入口：[实验首页](https://labs.selena.ink/)、
+[Virtual List](https://labs.selena.ink/virtual-list/)、
 [Task Slicer](https://labs.selena.ink/task-slicer/)、
 [Thread Pool](https://labs.selena.ink/thread-pool/)。
 子路径构建、Caddy 配置和回滚方式见[静态部署说明](deploy/README.md)。

@@ -1,3 +1,5 @@
+import '../../../shared/shell.ts'
+import '../../../shared/experiments.css'
 import { PersistentThreadPool } from './pool.ts'
 import { heavyWorkUnit } from './constants.ts'
 
@@ -19,11 +21,11 @@ const pool = new PersistentThreadPool()
 
 if (window.crossOriginIsolated) {
   pool.init(500_000) // 预分配 50 万容量的共享物理内存
-  isolationStatus.textContent = `跨源隔离已生效 | 常驻线程池已就绪 (${pool.concurrency} 核心处于休眠待命状态)`
-  isolationStatus.style.color = '#10b981'
+  isolationStatus.textContent = `跨源隔离已生效 · ${pool.concurrency} 个 Worker 已就绪，等待计算任务。`
+  isolationStatus.style.color = '#44765b'
 } else {
-  isolationStatus.textContent = '未启用跨源隔离，SharedArrayBuffer 被禁用！'
-  isolationStatus.style.color = '#ef4444'
+  isolationStatus.textContent = '当前环境未启用跨源隔离，Worker 共享内存模式不可用。'
+  isolationStatus.style.color = '#a56552'
 }
 
 // rAF 监控帧率
@@ -35,7 +37,7 @@ function animateMonitor(now: number) {
   if (now - lastFrameTime >= 500) {
     const currentFps = Math.round((frameCount * 1000) / (now - lastFrameTime))
     fpsVal.textContent = `${currentFps} FPS`
-    fpsVal.style.color = currentFps < 30 ? '#ef4444' : '#38bdf8'
+    fpsVal.style.color = currentFps < 30 ? '#a56552' : '#44765b'
     frameCount = 0
     lastFrameTime = now
   }
@@ -47,7 +49,7 @@ function animateMonitor(now: number) {
   sCtx.beginPath()
   sCtx.arc(0, 0, 18, 0, Math.PI * 1.4)
   sCtx.lineWidth = 4
-  sCtx.strokeStyle = '#38bdf8'
+  sCtx.strokeStyle = '#44765b'
   sCtx.lineCap = 'round'
   sCtx.stroke()
   sCtx.restore()
@@ -87,7 +89,7 @@ btnBlock.addEventListener('click', () => {
     const elapsed = performance.now() - t0
     progressFill.style.width = '100%'
     statusText.textContent = `同步执行完成，耗时: ${elapsed.toFixed(1)} ms`
-    log(`[Mode 1] 同步执行结束，耗时: ${elapsed.toFixed(1)} ms (主线程卡死)`)
+    log(`[Mode 1] 同步执行结束，耗时: ${elapsed.toFixed(1)} ms (主线程被阻塞)`)
     setButtonsDisabled(false)
   }, 50)
 })
@@ -96,7 +98,7 @@ btnBlock.addEventListener('click', () => {
 btnSlice.addEventListener('click', async () => {
   setButtonsDisabled(true)
   progressFill.style.width = '0%'
-  statusText.textContent = '切片调度中（UI 丝滑）...'
+  statusText.textContent = '切片调度中，每约 5 ms 让出主线程…'
   log(`[Mode 2] 开始单线程协作切片调度 (5ms 预算)...`)
 
   const t0 = performance.now()
@@ -138,33 +140,33 @@ btnSlice.addEventListener('click', async () => {
   globalSink += localAcc
   const elapsed = performance.now() - t0
   statusText.textContent = `切片执行完成，总耗时: ${elapsed.toFixed(1)} ms`
-  log(`[Mode 2] 切片调度完成，耗时: ${elapsed.toFixed(1)} ms (主线程维持流畅)`)
+  log(`[Mode 2] 切片调度完成，耗时: ${elapsed.toFixed(1)} ms (切片之间让出主线程)`)
   setButtonsDisabled(false)
 })
 
 // 3. 常驻线程池：Atomics.notify 唤醒已休眠的 Worker
 btnWorker.addEventListener('click', async () => {
   if (!window.crossOriginIsolated) {
-    log(`❌ 错误：未处于 crossOriginIsolated 环境，无法分配 SharedArrayBuffer`)
+    log(`无法运行：未处于 crossOriginIsolated 环境，无法分配 SharedArrayBuffer`)
     return
   }
 
   setButtonsDisabled(true)
   progressFill.style.width = '0%'
-  statusText.textContent = `常驻线程池秒级唤醒中 (${pool.concurrency} 核心)...`
+  statusText.textContent = `正在唤醒 ${pool.concurrency} 个 Worker…`
   log(`[Mode 3] 触发 Atomics.notify 唤醒常驻线程池...`)
 
   try {
     const { elapsed, results } = await pool.run(TOTAL_TASKS, (completed, total) => {
       const ratio = completed / total
       progressFill.style.width = `${(ratio * 100).toFixed(1)}%`
-      statusText.textContent = `多核常驻推进: ${(ratio * 100).toFixed(0)}% (${completed}/${total})`
+      statusText.textContent = `Worker 计算进度: ${(ratio * 100).toFixed(0)}% (${completed}/${total})`
     })
 
     globalSink += results[0] + results[TOTAL_TASKS - 1]
 
     statusText.textContent = `多核计算完成（线程已归位休眠），耗时: ${elapsed.toFixed(1)} ms`
-    log(`[Mode 3] 计算结束！耗时仅: ${elapsed.toFixed(1)} ms (零线程创建开销，算完自动休眠)`)
+    log(`[Mode 3] 计算完成，耗时: ${elapsed.toFixed(1)} ms (本轮复用已有线程，计算后进入等待)`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     statusText.textContent = message

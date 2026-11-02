@@ -1,3 +1,4 @@
+import '../../../shared/shell.ts'
 import './style.css'
 import { VirtualList, type ItemData } from './virtualList.ts'
 import { canCompare, createDataset, DATASET_VERSION } from './dataset.ts'

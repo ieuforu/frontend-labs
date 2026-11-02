@@ -2,8 +2,6 @@ labs.selena.ink {
 	root * /srv/frontend-labs/current
 	encode zstd gzip
 
-	redir / /virtual-list/ 302
-
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
@@ -15,9 +13,9 @@ labs.selena.ink {
 		Cross-Origin-Embedder-Policy require-corp
 	}
 
-	@assets path /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/*
+	@assets path /assets/* /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
-	@documents not path /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/*
+	@documents not path /assets/* /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/*
 	header @documents Cache-Control no-cache
 
 	file_server
