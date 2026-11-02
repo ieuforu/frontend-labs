@@ -58,6 +58,11 @@ Virtual List 另提供同一视口下的普通列表/虚拟列表对照：有界
 三个 `dist` 都可以作为独立静态站点部署。Thread Pool 额外要求安全上下文与跨源隔离；
 其 Vite dev/preview 已配置响应头，生产服务器必须自行配置。详见该实验说明。
 
+线上入口：[Virtual List](https://labs.selena.ink/virtual-list/)、
+[Task Slicer](https://labs.selena.ink/task-slicer/)、
+[Thread Pool](https://labs.selena.ink/thread-pool/)。
+子路径构建、Caddy 配置和回滚方式见[静态部署说明](deploy/README.md)。
+
 ## 来源与历史
 
 本仓库由三个原仓库迁入，导入时保留原提交 SHA、作者和时间，并通过合并提交接入 `main`。
