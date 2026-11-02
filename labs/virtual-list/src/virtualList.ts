@@ -95,20 +95,8 @@ export class VirtualList {
 
   private ensurePoolSize(poolSize: number) {
     for (let i = this.domPool.length; i < poolSize; i++) {
-      const el = document.createElement('div')
-      el.className = 'list-item'
-      el.dataset.slotId = i.toString()
+      const el = createRow(i)
       el.style.display = 'none'
-      el.innerHTML = `
-        <div class="list-item-header">
-          <div>
-            <span class="item-title"></span>
-            <span class="slot-tag">Slot #${i}</span>
-          </div>
-          <span class="item-size"></span>
-        </div>
-        <div class="list-item-desc"></div>
-      `
       this.contentBox.appendChild(el)
       this.domPool.push(el)
       this.resizeObserver.observe(el)
@@ -203,13 +191,9 @@ export class VirtualList {
         dom.style.transform = `translate3d(0, ${pos.top}px, 0)`
         dom.style.display = 'flex'
 
-        const titleEl = dom.querySelector('.item-title') as HTMLElement
         const sizeEl = dom.querySelector('.item-size') as HTMLElement
-        const descEl = dom.querySelector('.list-item-desc') as HTMLElement
-
-        titleEl.textContent = `#${item.id} ${item.title}`
+        fillRow(dom, item)
         sizeEl.textContent = `H: ${Math.round(pos.height)}px (Top: ${Math.round(pos.top)}px)`
-        descEl.textContent = item.content
       } else {
         dom.style.display = 'none'
         delete dom.dataset.index
@@ -240,3 +224,4 @@ export class VirtualList {
     this.domPool = []
   }
 }
+import { createRow, fillRow } from './row.ts'
