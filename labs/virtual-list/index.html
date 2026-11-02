@@ -1,196 +1,178 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dynamic Virtual List Lab</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        background: #0f172a;
-        color: #f8fafc;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 30px 20px;
-        gap: 16px;
-      }
-      .panel {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 20px;
-        width: 100%;
-        max-width: 680px;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-      .header-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .btn-debug {
-        background: #334155;
-        color: #f8fafc;
-        border: 1px solid #475569;
-        padding: 6px 14px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
-        transition: all 0.2s;
-      }
-      .btn-debug.active {
-        background: #0284c7;
-        border-color: #38bdf8;
-        color: white;
-      }
-      .telemetry {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        background: #0f172a;
-        padding: 12px;
-        border-radius: 6px;
-        border: 1px solid #334155;
-        font-size: 13px;
-      }
-      .telemetry-item div:first-child {
-        color: #94a3b8;
-        font-size: 11px;
-      }
-      .telemetry-item div:last-child {
-        font-weight: bold;
-        color: #38bdf8;
-        margin-top: 2px;
-      }
-      /* 视口外壳 */
-      #viewport {
-        position: relative;
-        width: 100%;
-        height: 520px;
-        overflow-y: auto;
-        background: #090d16;
-        border: 1px solid #334155;
-        border-radius: 6px;
-        will-change: transform;
-      }
-      /* 撑开滚动条的幽灵占位层 */
-      #phantom {
-        position: absolute;
-        left: 0;
-        top: 0;
-        right: 0;
-        z-index: -1;
-      }
-      /* 容纳复用 DOM 节点的真实容器 */
-      #content-box {
-        position: absolute;
-        left: 0;
-        top: 0;
-        right: 0;
-        pointer-events: none;
-      }
-      /* 池化节点样式 */
-      .list-item {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        padding: 12px 16px;
-        border-bottom: 1px solid #1e293b;
-        background: #131c2e;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        pointer-events: auto;
-        box-sizing: border-box;
-        transition:
-          border 0.15s ease,
-          background 0.15s ease;
-      }
-      .list-item-header {
-        display: flex;
-        justify-content: space-between;
-        font-size: 12px;
-        color: #38bdf8;
-      }
-      .list-item-desc {
-        font-size: 13px;
-        color: #cbd5e1;
-        line-height: 1.5;
-        word-break: break-all;
-      }
-      .slot-tag {
-        display: none;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 10px;
-        background: #3b82f6;
-        color: white;
-        margin-left: 8px;
-      }
-
-      /* -------------------------------------------------------------
-         调试透视模式：高亮边框、槽位角标与幽灵容器边框
-         ------------------------------------------------------------- */
-      body.debug-mode #viewport {
-        border-color: #f59e0b;
-        box-shadow: 0 0 0 1px #f59e0b;
-      }
-      body.debug-mode #phantom {
-        outline: 2px dashed rgba(245, 158, 11, 0.25);
-        outline-offset: -2px;
-      }
-      body.debug-mode .list-item {
-        border: 2px solid #38bdf8 !important;
-        background: rgba(15, 23, 42, 0.95);
-        margin: 2px 0;
-      }
-      body.debug-mode .slot-tag {
-        display: inline-block;
-      }
-    </style>
+    <link rel="icon" href="/favicon.svg" />
+    <title>Virtual List · Frontend Labs</title>
   </head>
   <body>
-    <div class="panel">
-      <div class="header-actions">
-        <h2>万级不定高动态虚拟滚动（100,000 条）</h2>
-        <button id="btn-toggle-debug" class="btn-debug">🔍 开启调试透视模式</button>
-      </div>
+    <main class="panel">
+      <header class="header-actions">
+        <div>
+          <p class="eyebrow">FRONTEND LABS / 03</p>
+          <h1>动态虚拟列表</h1>
+          <p class="subtitle">同一份不定高文本，比较全量 DOM 与节点复用。</p>
+        </div>
+        <button id="btn-toggle-debug" class="btn-debug" aria-pressed="false">开启调试透视</button>
+      </header>
 
-      <div class="telemetry">
+      <section class="experiment-controls" aria-label="实验设置">
+        <label
+          >数据量
+          <select id="data-count">
+            <option value="500">500 条</option>
+            <option value="2000" selected>2,000 条</option>
+            <option value="5000">5,000 条</option>
+            <option value="100000">100,000 条 · 仅虚拟探索</option>
+          </select>
+        </label>
+        <label
+          >当前查看
+          <select id="render-mode">
+            <option value="virtual">虚拟列表</option>
+            <option value="full">普通全量 DOM</option>
+          </select>
+        </label>
+        <button id="run-comparison" class="primary-button">运行对照 · 各 3 次</button>
+        <button id="stop-comparison" class="btn-debug" hidden>停止</button>
+      </section>
+      <p id="count-note" class="muted"></p>
+
+      <div class="telemetry" aria-label="当前列表状态">
         <div class="telemetry-item">
           <div>总数据量</div>
-          <div id="stat-total">100,000 条</div>
+          <div id="stat-total">—</div>
         </div>
         <div class="telemetry-item">
-          <div>DOM 真实节点数</div>
-          <div id="stat-dom-count">0</div>
+          <div>实际行节点（含隐藏槽位）</div>
+          <div id="stat-dom-count">—</div>
         </div>
         <div class="telemetry-item">
           <div>当前渲染区间</div>
-          <div id="stat-range">[0, 0]</div>
+          <div id="stat-range">—</div>
         </div>
         <div class="telemetry-item">
-          <div>撑高层高度 (Phantom)</div>
-          <div id="stat-phantom-height">0 px</div>
+          <div>滚动内容高度</div>
+          <div id="stat-phantom-height">—</div>
         </div>
       </div>
 
-      <div id="viewport">
+      <div class="list-heading">
+        <span id="active-mode">虚拟列表</span><span>滚动观察 · 调试模式显示复用槽位</span>
+      </div>
+      <div
+        id="viewport"
+        tabindex="0"
+        aria-label="实验列表，可使用方向键或滚轮滚动"
+        aria-busy="false"
+      >
         <div id="phantom"></div>
         <div id="content-box"></div>
       </div>
-    </div>
 
+      <section class="results" aria-labelledby="results-title">
+        <div class="header-actions">
+          <div>
+            <p class="eyebrow">MEASURE, DON'T GUESS</p>
+            <h2 id="results-title">当前环境的测量</h2>
+          </div>
+          <button id="export-results" class="btn-debug" disabled>导出 JSON</button>
+        </div>
+        <p id="measurement-status" role="status" aria-live="polite">
+          先各预热一次，再交替测量三轮。运行时请保持窗口大小与页面可见性不变。
+        </p>
+        <p id="result-context" class="muted">尚未运行，不预填性能数字。</p>
+        <div class="table-scroll">
+          <table>
+            <caption>
+              中位数（最小–最大），预热不计入
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">渲染方式</th>
+                <th scope="col">同步挂载</th>
+                <th scope="col">布局读取</th>
+                <th scope="col">至第二个 rAF</th>
+                <th scope="col">行节点范围</th>
+              </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+        <p class="measurement-note">
+          时间来自 performance.now()。第二个 rAF
+          是帧回调边界，不是绘制完成、行高全部稳定或滚动流畅度。虚拟列表未展示的行高仍为估计。
+        </p>
+        <details>
+          <summary>原始轮次与记录环境</summary>
+          <p id="recorded-environment" class="environment"></p>
+          <div class="table-scroll">
+            <table>
+              <caption>
+                未经汇总的每轮数据；时间单位 ms
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">轮次</th>
+                  <th scope="col">顺序</th>
+                  <th scope="col">模式</th>
+                  <th scope="col">挂载</th>
+                  <th scope="col">布局读取</th>
+                  <th scope="col">第二个 rAF</th>
+                  <th scope="col">行节点</th>
+                  <th scope="col">后代元素</th>
+                </tr>
+              </thead>
+              <tbody id="raw-results"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <details class="protocol">
+        <summary>如何复现，怎样理解结果</summary>
+        <ol>
+          <li>
+            固定浏览器、窗口大小与浏览器缩放。关闭调试透视、其他高负载页面和开发者工具的性能录制。
+          </li>
+          <li>
+            选择 500、2,000 或 5,000
+            条。两种模式使用同一数组、行标记和基础样式，都会从顶部重新挂载。数据生成与旧列表销毁不计入挂载时间。
+          </li>
+          <li>
+            点击运行对照。程序关闭调试样式，各预热一次，然后按“普通/虚拟、虚拟/普通、普通/虚拟”记录三轮。
+          </li>
+          <li>
+            导出 JSON
+            保存原始轮次、数据版本、浏览器和视口；重复整个实验观察波动。处理器数量由浏览器报告，不代表
+            CPU 型号。
+          </li>
+        </ol>
+        <p>
+          同步挂载计时覆盖构造列表、插入节点、遥测文字更新及其间触发的布局；随后单独计时读取
+          scrollHeight，记录该读取与待处理布局的成本。第二个 rAF
+          耗时从挂载开始计至第二个回调，包含浏览器调度等待。
+        </p>
+        <p>
+          对照只衡量初始挂载，不推断 FPS、内存、GC
+          或实际产品表现。保留全部行的普通列表和按需渲染的虚拟列表完成的工作不同；本实验说明这个取舍，不给出“通用加速倍数”。
+        </p>
+        <p>
+          10 万条模式保留原有探索能力，但不创建 10 万个完整行节点。5,000
+          条在低性能设备上仍可能短暂停顿；停止按钮会在同步工作返回后响应。
+        </p>
+      </details>
+      <footer>
+        <span>TypeScript · DOM · ResizeObserver</span
+        ><a
+          href="https://github.com/ieuforu/frontend-labs/tree/main/labs/virtual-list"
+          target="_blank"
+          rel="noreferrer"
+          >源码与实现说明 ↗</a
+        >
+      </footer>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

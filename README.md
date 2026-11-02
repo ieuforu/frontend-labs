@@ -7,7 +7,7 @@
 | ------------------------------------------- | ------------------------------------- | ------------------ |
 | [Task Slicer](labs/task-slicer/README.md)   | 如何把长任务切开，并安排优先级与取消  | `pnpm dev:task`    |
 | [Thread Pool](labs/thread-pool/README.md)   | 如何用 Worker 和共享内存分配 CPU 工作 | `pnpm dev:threads` |
-| [Virtual List](labs/virtual-list/README.md) | 如何用有限 DOM 展示大量不定高数据     | `pnpm dev:list`    |
+| [Virtual List](labs/virtual-list/README.md) | 固定数据对照全量 DOM 与不定高虚拟列表 | `pnpm dev:list`    |
 
 ## 开始
 
@@ -40,6 +40,8 @@ pnpm check
 
 测试使用 Node.js 内置测试运行器。线程池测试通过一层消息适配运行真实 Worker 线程和原始计算代码；
 虚拟列表测试使用可控 DOM/ResizeObserver 替身，验证状态和生命周期，不代表真实浏览器布局或性能测试。
+
+Virtual List 另提供同一视口下的普通列表/虚拟列表对照：有界规模、预热、交替轮次、原始时间和环境 JSON 导出。10 万条模式保留为虚拟列表探索。详见[实验协议与源码导读](labs/virtual-list/README.md)。
 
 ## 如何测量
 
