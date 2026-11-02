@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="三个可以亲手运行的前端实验：虚拟列表、任务切片与 Worker 线程池。观察过程，测量结果，阅读实现。"
+      content="四个可以亲手运行的前端实验：虚拟列表、任务切片、Worker 线程池与无限画布。观察过程，测量结果，阅读实现。"
     />
     <link rel="icon" href="/favicon.svg" />
     <title>Frontend Labs · 前端实验笔记</title>
@@ -41,7 +41,7 @@
           />在这里，换一种实现，看看浏览器里发生了什么。
         </p>
         <div class="notebook-meta">
-          <span><span class="small-status" aria-hidden="true"></span>3 个可交互实验</span
+          <span><span class="small-status" aria-hidden="true"></span>4 个可交互实验</span
           ><span>TypeScript · Web APIs</span
           ><a href="https://github.com/ieuforu/frontend-labs" target="_blank" rel="noreferrer"
             >开源笔记 ↗</a
@@ -55,7 +55,7 @@
           <span class="catalog-note">从一个好奇的问题开始</span>
         </div>
         <div class="catalog-tabs">
-          <span>全部实验 <span class="catalog-count">3</span></span
+          <span>全部实验 <span class="catalog-count">4</span></span
           ><span class="catalog-view" aria-hidden="true">▦ &nbsp; 画廊视图</span>
         </div>
         <div class="experiment-grid">
@@ -126,6 +126,27 @@
               </h3>
               <p>同一份计算，放到多个<br />Worker 里会有什么不同？</p>
               <div class="card-tags"><span>Web Workers</span><span>共享内存</span></div>
+            </div>
+          </a>
+          <a class="experiment-card" href="/infinite-canvas/">
+            <div class="card-preview canvas-preview" aria-hidden="true">
+              <div class="preview-label">EXPLORE THE VISIBLE WORLD</div>
+              <div class="mini-canvas">
+                <span></span><span></span><span></span><span></span><i></i>
+              </div>
+              <span class="preview-annotation">视口之外，先不绘制</span>
+            </div>
+            <div class="card-content">
+              <span class="card-index">04 / SPATIAL INDEXING</span>
+              <h3>
+                <span data-icon="infinite-canvas"></span>无限画布<span
+                  class="card-arrow"
+                  aria-hidden="true"
+                  >↗</span
+                >
+              </h3>
+              <p>画布有一万个图形，怎样快速<br />找到眼前的这一小部分？</p>
+              <div class="card-tags"><span>四叉树</span><span>坐标变换</span></div>
             </div>
           </a>
         </div>

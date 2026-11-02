@@ -1,6 +1,8 @@
 import './shell.css'
 
 const icons: Record<string, string> = {
+  'infinite-canvas':
+    '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18M17 3v9M12 7h9"/>',
   home: '<path d="M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
   'virtual-list':
     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
@@ -17,6 +19,7 @@ const pages = [
   { id: 'virtual-list', title: '虚拟列表', href: '/virtual-list/' },
   { id: 'task-slicer', title: '任务切片', href: '/task-slicer/' },
   { id: 'thread-pool', title: '线程池', href: '/thread-pool/' },
+  { id: 'infinite-canvas', title: '无限画布', href: '/infinite-canvas/' },
 ]
 const active = document.body.dataset.page ?? 'home'
 const page = pages.find((item) => item.id === active) ?? pages[0]

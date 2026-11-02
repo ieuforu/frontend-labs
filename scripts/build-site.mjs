@@ -15,6 +15,7 @@ const pages = [
   { directory: 'virtual-list', package: 'virtual-list-lab', base: '/virtual-list/' },
   { directory: 'task-slicer', package: 'task-slicer-lab', base: '/task-slicer/' },
   { directory: 'thread-pool', package: 'thread-pool-lab', base: '/thread-pool/' },
+  { directory: 'infinite-canvas', package: 'infinite-canvas-core', base: '/infinite-canvas/' },
 ]
 
 // Finish every build before replacing the assembled deployment directory.
@@ -34,4 +35,4 @@ for (const page of pages) {
   await cp(join(root, 'labs', page.directory, 'dist'), destination, { recursive: true })
 }
 
-console.log(`Built landing page and three labs in ${output} (revision ${sourceRevision}).`)
+console.log(`Built landing page and four labs in ${output} (revision ${sourceRevision}).`)

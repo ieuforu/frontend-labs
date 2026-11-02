@@ -1,31 +1,93 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Infinite Canvas Core</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background-color: #121212;
-      }
-      canvas {
-        display: block;
-        width: 100vw;
-        height: 100vh;
-      }
-    </style>
+    <meta
+      name="description"
+      content="平移、缩放与框选一万个图形，观察四叉树如何查询视口中的对象。"
+    />
+    <link rel="icon" href="/favicon.svg" />
+    <title>无限画布 · Frontend Labs</title>
   </head>
-  <body>
-    <canvas id="canvas"></canvas>
+  <body data-page="infinite-canvas">
+    <div data-page-content>
+      <header class="page-header">
+        <div class="page-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="5" y="5" width="30" height="30" rx="3" />
+            <path d="M20 5v30M5 20h30M27.5 5v15M20 12.5h15" />
+            <rect x="10" y="11" width="6" height="5" fill="currentColor" opacity=".2" />
+            <rect x="23" y="24" width="8" height="7" fill="currentColor" opacity=".2" />
+          </svg>
+        </div>
+        <p class="page-eyebrow">实验 04 / Spatial indexing</p>
+        <h1>只画出，眼前的世界。</h1>
+        <p class="page-description">
+          在一万个图形间平移、缩放和框选。打开四叉树分区，看看画面外的对象是如何被跳过的。
+        </p>
+      </header>
+      <div class="experiment-meta" aria-label="实验信息">
+        <span>Canvas 2D</span><span>10,000 个图形</span><span>四叉树与视口裁剪</span>
+      </div>
+      <section class="experiment-section" aria-labelledby="canvas-heading">
+        <div class="experiment-section-heading">
+          <h2 id="canvas-heading">探索画布</h2>
+          <span class="experiment-caption">按需绘制 · 拖动试试看</span>
+        </div>
+        <div class="canvas-toolbar" aria-label="画布控制">
+          <div class="zoom-controls">
+            <button id="zoom-out" aria-label="缩小画布">−</button>
+            <output id="zoom-value" aria-label="缩放比例">100%</output>
+            <button id="zoom-in" aria-label="放大画布">+</button>
+          </div>
+          <button id="reset-view">重置视角</button>
+          <button id="toggle-debug" aria-pressed="false">四叉树分区</button>
+        </div>
+        <div class="canvas-stage" id="canvas-container">
+          <canvas id="canvas" tabindex="0" aria-label="交互画布" aria-describedby="canvas-controls">
+            此实验需要支持 Canvas 2D 的浏览器。
+          </canvas>
+        </div>
+        <dl class="canvas-metrics" aria-label="本次绘制观察值">
+          <div>
+            <dt>已绘制图形</dt>
+            <dd id="visible-count">—</dd>
+          </div>
+          <div>
+            <dt>已选中</dt>
+            <dd id="selected-count">0</dd>
+          </div>
+          <div>
+            <dt>范围查询</dt>
+            <dd id="query-time">—</dd>
+          </div>
+          <div>
+            <dt>绘制调用耗时</dt>
+            <dd id="render-time">—</dd>
+          </div>
+        </dl>
+        <p class="experiment-hint" id="canvas-controls">
+          拖动空白处平移，滚轮缩放；点击图形选中并拖动，Shift + 拖动框选，中键始终平移。
+          聚焦画布后，可用方向键移动视角、+/− 缩放、Home 复位、D 切换分区、Esc 清除选择。
+        </p>
+      </section>
+      <details class="experiment-notes">
+        <summary>这个实验在观察什么？</summary>
+        <ul>
+          <li>四叉树先跳过与视口不相交的分区，再查询可见图形；跨分区对象在结果中去重。</li>
+          <li>平移、缩放和选择只会请求下一次绘制，静止时不持续刷新；这里不把绘制次数当作 FPS。</li>
+          <li>
+            耗时是单次 JavaScript 查询与 Canvas 绘制调用的观察值，不包含完整的 GPU 渲染和屏幕呈现。
+          </li>
+          <li>
+            视口可以继续漫游；图形的活动范围限定在 12,000 × 12,000
+            的场景内，整组选中时会一起停在边界。
+          </li>
+          <li>支持鼠标、触控板滚轮与单指拖动。多指缩放和屏幕阅读器逐个操作图形尚未实现。</li>
+        </ul>
+      </details>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

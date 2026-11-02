@@ -13,9 +13,9 @@ labs.selena.ink {
 		Cross-Origin-Embedder-Policy require-corp
 	}
 
-	@assets path /assets/* /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/*
+	@assets path /assets/* /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/* /infinite-canvas/assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
-	@documents not path /assets/* /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/*
+	@documents not path /assets/* /virtual-list/assets/* /task-slicer/assets/* /thread-pool/assets/* /infinite-canvas/assets/*
 	header @documents Cache-Control no-cache
 
 	file_server

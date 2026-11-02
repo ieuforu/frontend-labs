@@ -82,7 +82,7 @@
 }
 .experiment-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 .experiment-card {
@@ -436,4 +436,55 @@
     padding: 20px 16px;
     gap: 10px;
   }
+}
+
+.canvas-preview {
+  background: #f6f4f8;
+}
+.mini-canvas {
+  width: 148px;
+  height: 83px;
+  margin: 15px auto 0;
+  position: relative;
+  background-image:
+    linear-gradient(#ded9e566 1px, transparent 1px),
+    linear-gradient(90deg, #ded9e566 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.mini-canvas span {
+  position: absolute;
+  width: 24px;
+  height: 19px;
+  background: #dcd4e6;
+  border: 1px solid #b7a6c5;
+  border-radius: 2px;
+}
+.mini-canvas span:nth-child(1) {
+  left: 12px;
+  top: 8px;
+}
+.mini-canvas span:nth-child(2) {
+  left: 61px;
+  top: 21px;
+  width: 31px;
+}
+.mini-canvas span:nth-child(3) {
+  left: 98px;
+  top: 49px;
+}
+.mini-canvas span:nth-child(4) {
+  left: 31px;
+  top: 55px;
+  width: 15px;
+  height: 12px;
+}
+.mini-canvas i {
+  position: absolute;
+  inset: 4px 24px 7px 6px;
+  border: 1px dashed #a897bb;
+  border-radius: 2px;
+}
+.experiment-card:nth-child(4) .card-tags span {
+  color: #867292;
+  background: #f1edf5;
 }

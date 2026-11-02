@@ -20,6 +20,8 @@ importers:
 
   labs/home: {}
 
+  labs/infinite-canvas: {}
+
   labs/task-slicer: {}
 
   labs/thread-pool: {}

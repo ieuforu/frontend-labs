@@ -6,6 +6,7 @@
     "dev:home": "pnpm --filter frontend-labs-home dev",
     "dev:task": "pnpm --filter task-slicer-lab dev",
     "dev:threads": "pnpm --filter thread-pool-lab dev",
+    "dev:canvas": "pnpm --filter infinite-canvas-core dev",
     "dev:list": "pnpm --filter virtual-list-lab dev",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",

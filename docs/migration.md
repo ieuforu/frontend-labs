@@ -36,3 +36,23 @@ git merge-base --is-ancestor d7d07b8de32c20b7a1eb3ddc405bfcab731d4d23 main
 
 原仓库的 Issue、PR、Star 和仓库设置不会随 Git 提交历史迁移。
 旧仓库迁移说明与归档应在新仓库推送并验证完成后处理。
+
+## Infinite Canvas（2026-11-02）
+
+将 [infinite-canvas-core](https://github.com/ieuforu/infinite-canvas-core) 迁入 `labs/infinite-canvas`，
+导入时 main 为 `6fc38dbea9c17148d366265a246671823b2d2007`，共 5 个提交。
+双父合并提交 `7378b09` 保留全部原始提交对象；迁移标签为 `migration/infinite-canvas-core`。
+
+```sh
+git show migration/infinite-canvas-core
+git merge-base --is-ancestor 6fc38dbea9c17148d366265a246671823b2d2007 main
+```
+
+- 保留包名 `infinite-canvas-core`；使用共享 TypeScript、依赖、锁文件与 CI。
+- 加入第四张首页卡片、统一导航、`pnpm dev:canvas` 和 `/infinite-canvas/` 子路径构建。
+- 画布尺寸与坐标改为相对容器，使用指针捕获并处理取消，避免导航与滚轮冲突。
+- 批量拖动限制在场景边界，避免图形被移出固定四叉树后丢失。
+- 补充范围查询、去重、移动重索引、边界、锚点缩放和框选回归测试。
+- 更新实验说明，区分可无限漫游的视口与固定场景，移除固定帧率和零 GC 保证。
+
+旧仓库在新仓库推送并验证后添加迁移说明并归档；原始截图继续保留。

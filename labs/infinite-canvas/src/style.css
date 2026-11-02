@@ -1,0 +1,65 @@
+.canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+}
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.zoom-controls output {
+  min-width: 55px;
+  text-align: center;
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+.canvas-toolbar button {
+  font-size: 12px;
+}
+#toggle-debug[aria-pressed='true'] {
+  background: #edf3ee;
+  color: var(--green);
+  border-color: #a9bcae;
+}
+.canvas-stage {
+  height: clamp(320px, 58vh, 620px);
+  position: relative;
+  overflow: hidden;
+  background: #171c21;
+  border-radius: 6px;
+}
+.canvas-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.canvas-stage canvas:focus-visible {
+  outline-offset: -3px;
+}
+.canvas-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+.canvas-metrics dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.canvas-metrics dd {
+  margin: 7px 0 0;
+  font: 14px var(--mono);
+}
+@media (max-width: 600px) {
+  .canvas-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+}

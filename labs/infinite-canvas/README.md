@@ -1,107 +1,66 @@
-# infinite-canvas-core
+# Infinite Canvas
 
-A zero-dependency 2D infinite canvas engine built from scratch with TypeScript and HTML5 Canvas, featuring affine viewport transforms, QuadTree spatial indexing, frustum culling, and marquee multi-selection.
+在 10,000 个矩形之间平移、缩放和框选，观察坐标变换、四叉树空间索引与视口裁剪。
+由 [infinite-canvas-core](https://github.com/ieuforu/infinite-canvas-core) 迁入，保留原提交历史。
 
----
+## 运行
 
-## Preview
+在仓库根目录执行：
 
-|       Infinite Canvas & Marquee Selection        |     QuadTree Spatial Partitioning (Debug Mode)     |
-| :----------------------------------------------: | :------------------------------------------------: |
+```sh
+pnpm install --frozen-lockfile
+pnpm dev:canvas
+# 或 pnpm --filter infinite-canvas-core dev
+pnpm check
+pnpm build:site
+```
+
+组合站点的路径为 `/infinite-canvas/`。独立开发服务器只提供当前实验，跨实验导航需组合部署。
+
+## 操作
+
+| 操作           | 输入                                                          |
+| -------------- | ------------------------------------------------------------- |
+| 平移           | 拖动空白处；中键可在任意位置拖动                              |
+| 缩放           | 画布内滚轮，锚定指针；工具栏 +/− 锚定画布中心                 |
+| 单选与移动     | 点击图形后拖动                                                |
+| 框选与批量移动 | Shift + 拖动框选，再拖动其中任意图形                          |
+| 空间分区       | 工具栏「四叉树分区」；聚焦画布时按 D                          |
+| 键盘浏览       | 聚焦画布后用方向键平移、+/− 缩放、Home 重置视角、Esc 清除选择 |
+
+画布尺寸由容器决定，指针坐标先减去画布在页面中的偏移，再转换为世界坐标。
+指针捕获维持画布外的拖动；抬起、取消、失去捕获或焦点时结束手势。
+滚轮和画布快捷键只在画布内生效，侧边导航、页面滚动和按钮不受影响。
+触屏支持单指操作；尚未实现多指缩放或屏幕阅读器逐图形操作。
+
+## 观察与限制
+
+- **坐标变换**：世界坐标为 `(屏幕坐标 - 视口偏移) / 缩放比例`，缩放范围为 0.02–30。
+- **空间查询**：递归跳过不相交分区；跨分区矩形通过查询序号去重。范围查询的耗时取决于分布、树深、重叠与返回量，不保证统一的 O(log N)。
+- **场景边界**：视口可继续漫游，但索引和图形活动范围为 `[-6000, 6000] × [-6000, 6000]`。批量拖动使用共同的受限位移，保持相对位置并防止图形移出索引后消失。
+- **按需绘制**：交互标记下一帧需要重绘；静止时不持续刷新，因此不显示基于绘制次数计算的 FPS，也不承诺固定帧率。
+- **耗时**：范围查询为一次 `queryRange` 的 JavaScript 耗时；绘制调用耗时包含该次查询和同步 Canvas 调用，不包含完整的 GPU 工作、合成与屏幕呈现。开启分区或选中大量图形会增加绘制工作。
+- **内存**：可见对象数组在帧间复用，查询序号避免另建去重 Set；交互、树分裂和绘制仍会分配对象，不宣称整体零 GC。
+- **实验范围**：这是浏览器交互实验，尚未提供独立库 API、持久化、旋转、撤销或多人协作。初始场景随机生成，单次耗时不作为跨实现的性能结论。
+
+## 源码与验证
+
+- `src/main.ts`：容器尺寸、输入、渲染、选择与观察值。
+- `src/viewport.ts`：坐标映射、锚点缩放、框选矩形与整组边界约束。
+- `src/quadtree.ts`：索引插入、去重查询、命中测试、删除与分区可视化。
+- `tests/infinite-canvas.test.mjs`（仓库根目录）：以线性扫描核对范围查询，覆盖跨区去重、移动重索引、场景边界、缩放锚点和反向框选。
+- `tests/infinite-canvas-interaction.test.mjs`：运行实际输入控制代码，用可控画布和事件替身检查页面偏移、画布外输入、指针取消、容器缩放与 HiDPI 尺寸。
+
+Node.js 测试验证算法行为，不模拟浏览器绘制或代表真实性能测量。浏览器检查应覆盖容器缩放、页面滚动后指针定位、框选、移出画布、导航与移动端布局。
+
+## 原始预览
+
+以下截图来自迁入前的独立演示，保留用于对照；当前页面使用 Frontend Labs 的统一导航和控制栏。
+
+| 画布与框选                                       | 四叉树分区                                         |
+| ------------------------------------------------ | -------------------------------------------------- |
 | ![Canvas Preview](src/assets/preview-canvas.png) | ![QuadTree Debug](src/assets/preview-quadtree.png) |
-
----
-
-## Features
-
-- **Infinite Coordinate Space**: Smooth panning and pointer-anchored zooming using 2D affine transform matrices.
-- **HiDPI / Retina Crispness**: Automatic physical-to-logical pixel synchronization via `devicePixelRatio`.
-- **Zero-GC QuadTree Spatial Index**:
-  - $O(\log N)$ viewport range queries (Frustum Culling) replacing $O(N)$ linear scans.
-  - Instant point hit testing for hovering and selecting among 10,000+ objects.
-  - Query ID stamping algorithm for zero-allocation deduplication across tree boundaries.
-  - Real-time spatial re-balancing on item movement (`remove` $\to$ `update` $\to$ `insert`).
-- **Frame-Budget Scheduler**: Decouples high-frequency pointer and wheel events from the rendering loop via `requestAnimationFrame` dirty flagging to sustain 120 FPS.
-- **Adaptive Grid LOD**: Dynamically scales world grid subdivisions to keep screen-space line intervals within readable pixel bounds.
-- **Selection & Batch Transformations**:
-  - Single-item selection and dragging with visual bounding handles.
-  - Marquee rubber-band selection (`Shift` + Drag) powered by QuadTree intersection queries.
-  - Batch translation of multiple selected shapes.
-- **Visual Spatial Debugger**: Real-time rendering of QuadTree quadrant boundaries, partition depths, and occupancy counters.
-
----
-
-## Math & Architecture
-
-### 1. Viewport & Coordinate Space Mapping
-
-The camera state consists of translation offsets $(x, y)$ and a zoom factor $s$.
-
-- **Screen to World**:
-  $$x_w = \frac{x_s - x}{s}, \quad y_w = \frac{y_s - y}{s}$$
-
-- **Zoom Towards Cursor**:
-  To ensure the world coordinate directly under the pointer $(x_s, y_s)$ remains stationary across scaling:
-  $$x_{new} = x_s - (x_s - x) \cdot \frac{s_{new}}{s}$$
-  $$y_{new} = y_s - (y_s - y) \cdot \frac{s_{new}}{s}$$
-
-### 2. QuadTree Spatial Partitioning
-
-Instead of checking every primitive against the viewport or mouse cursor, space is recursively divided into four quadrants (NW, NE, SW, SE).
-
-- **Branch Pruning**: Any node whose Axis-Aligned Bounding Box (AABB) does not intersect the viewport is skipped entirely.
-- **Zero-Allocation Deduplication**: Boundary-crossing elements indexed in multiple leaf nodes are tagged with a monotonically increasing `_lastQueryId`. This prevents redundant array pushes without creating transient `Set` instances in the render loop.
-
----
-
-## Controls
-
-| Action                            | Input                                              |
-| :-------------------------------- | :------------------------------------------------- |
-| **Pan Canvas**                    | Left Click / Middle Click Drag on blank area       |
-| **Zoom in / out**                 | Mouse Wheel / Trackpad Pinch (anchored to cursor)  |
-| **Select & Drag Shape**           | Left Click on any rectangle                        |
-| **Marquee Multi-Select**          | `Shift` + Left Click Drag                          |
-| **Batch Move**                    | Drag any selected shape when multiple are selected |
-| **Toggle QuadTree Debug Overlay** | Press `D`                                          |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (>= 18)
-- [pnpm](https://pnpm.io/)
-
-### Installation & Run
-
-```bash
-# Clone the repository
-git clone [https://github.com/](https://github.com/)<your-username>/infinite-canvas-core.git
-cd infinite-canvas-core
-
-# Install dependencies
-pnpm install
-
-# Start local development server
-pnpm dev
-
-# Type check & build for production
-pnpm build
-```
-
-## Project Structure
-
-```
-├── index.html         # Fullscreen canvas host & layout
-├── src/
-│   ├── main.ts        # Input loop, camera pipeline, HUD, and batch interactions
-│   └── quadtree.ts    # Recursive QuadTree spatial index and AABB geometry math
-├── package.json
-└── tsconfig.json      # Strict TypeScript config
-```
 
 ## License
 
-MIT
+沿用原仓库 README 的 MIT 声明。

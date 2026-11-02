@@ -1,14 +1,15 @@
 # Frontend Labs
 
-三个可以独立运行的浏览器实验：协作调度、多线程计算、动态虚拟滚动。
+四个可以独立运行的浏览器实验：协作调度、多线程计算、动态虚拟滚动与无限画布。
 从[实验首页](https://labs.selena.ink/)选择一个开始，通过侧边导航切换实验。
 关注实现原理、可观察行为和限制，适合学习与验证想法。
 
-| 实验                                        | 问题                                  | 启动               |
-| ------------------------------------------- | ------------------------------------- | ------------------ |
-| [Task Slicer](labs/task-slicer/README.md)   | 如何把长任务切开，并安排优先级与取消  | `pnpm dev:task`    |
-| [Thread Pool](labs/thread-pool/README.md)   | 如何用 Worker 和共享内存分配 CPU 工作 | `pnpm dev:threads` |
-| [Virtual List](labs/virtual-list/README.md) | 固定数据对照全量 DOM 与不定高虚拟列表 | `pnpm dev:list`    |
+| 实验                                              | 问题                                       | 启动               |
+| ------------------------------------------------- | ------------------------------------------ | ------------------ |
+| [Task Slicer](labs/task-slicer/README.md)         | 如何把长任务切开，并安排优先级与取消       | `pnpm dev:task`    |
+| [Thread Pool](labs/thread-pool/README.md)         | 如何用 Worker 和共享内存分配 CPU 工作      | `pnpm dev:threads` |
+| [Virtual List](labs/virtual-list/README.md)       | 固定数据对照全量 DOM 与不定高虚拟列表      | `pnpm dev:list`    |
+| [Infinite Canvas](labs/infinite-canvas/README.md) | 如何用空间索引查询、绘制和框选视口中的图形 | `pnpm dev:canvas`  |
 
 ## 开始
 
@@ -37,7 +38,7 @@ pnpm --filter task-slicer-lab preview
 pnpm check
 ```
 
-依次执行格式检查、首页和三个实验的 TypeScript 检查、回归测试和生产构建。
+依次执行格式检查、首页和四个实验的 TypeScript 检查、回归测试和生产构建。
 构建产物分别位于 `labs/*/dist`。根目录统一维护依赖、锁文件和基础配置。
 
 测试使用 Node.js 内置测试运行器。线程池测试通过一层消息适配运行真实 Worker 线程和原始计算代码；
@@ -57,7 +58,7 @@ Virtual List 另提供同一视口下的普通列表/虚拟列表对照：有界
 
 ## 部署
 
-运行 `pnpm build:site`，将首页和三个实验按正式路径构建并组合到根目录 `dist/`。
+运行 `pnpm build:site`，将首页和四个实验按正式路径构建并组合到根目录 `dist/`。
 将该目录整体部署为静态站点即可保留统一导航。Thread Pool 额外要求安全上下文与跨源隔离；
 其 Vite dev/preview 已配置响应头，生产服务器必须自行配置。详见该实验说明。
 
@@ -65,15 +66,17 @@ Virtual List 另提供同一视口下的普通列表/虚拟列表对照：有界
 [Virtual List](https://labs.selena.ink/virtual-list/)、
 [Task Slicer](https://labs.selena.ink/task-slicer/)、
 [Thread Pool](https://labs.selena.ink/thread-pool/)。
+Infinite Canvas 的组合部署路径为 `/infinite-canvas/`。
 子路径构建、Caddy 配置和回滚方式见[静态部署说明](deploy/README.md)。
 
 ## 来源与历史
 
-本仓库由三个原仓库迁入，导入时保留原提交 SHA、作者和时间，并通过合并提交接入 `main`。
+本仓库由四个原仓库迁入，导入时保留原提交 SHA、作者和时间，并通过合并提交接入 `main`。
 源码移动到 `labs/` 后统一配置、补充边界测试并修正已知问题。
 [迁移记录](docs/migration.md) 列出原始提交与检查方式。
 
-`infinite-canvas-core` 仍然独立维护。
+2026-11-02 将 `infinite-canvas-core` 接入 `labs/infinite-canvas`，保留其全部 5 个原始提交。
+画布按容器布局，输入限制在画布内，并为场景边界、空间查询与坐标变换补充回归测试。
 
 ## License
 

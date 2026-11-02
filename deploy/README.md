@@ -1,11 +1,12 @@
 # Static deployment
 
-The landing page and three labs are served by the existing Caddy service at:
+The landing page and four labs are configured for the existing Caddy service at:
 
 - [Home](https://labs.selena.ink/) (default entry)
 - [Virtual List](https://labs.selena.ink/virtual-list/)
 - [Task Slicer](https://labs.selena.ink/task-slicer/)
 - [Thread Pool](https://labs.selena.ink/thread-pool/)
+- Infinite Canvas: `/infinite-canvas/` (available after deploying this revision)
 
 No application process, database or model API is required. Computation runs in
 the visitor's browser. The VPS only serves static files.
@@ -20,8 +21,8 @@ pnpm check
 pnpm build:site
 ```
 
-`build:site` builds `labs/home` at `/` and the three labs at `/virtual-list/`,
-`/task-slicer/` and `/thread-pool/`. It assembles a complete deployment in root
+`build:site` builds `labs/home` at `/` and the four labs at `/virtual-list/`,
+`/task-slicer/`, `/thread-pool/` and `/infinite-canvas/`. It assembles a complete deployment in root
 `dist/`, including the hashed assets and Worker scripts. All navigation uses
 these public paths. Individual lab dev servers only serve the current lab.
 
@@ -51,18 +52,24 @@ Virtual-List redirect by installing the updated Caddy include. `/` now serves th
 landing document directly. Root `/assets/*` uses the same immutable cache policy
 as the lab asset directories; documents use `no-cache`.
 
+The canvas asset prefix is included in the updated Caddy cache rules. Install
+this include when deploying the fourth lab; keep document caching unchanged.
+
 Thread Pool requires HTTPS and the COOP/COEP headers on both its document and
 Worker assets. Keep the URL prefixes intact; `handle_path` would strip them.
 There is no SPA fallback: missing scripts must return 404, not HTML.
 
 ## Verify and roll back
 
-Verify all four HTTPS entries, navigation between pages, asset checksums/MIME
+Verify all five HTTPS entries, navigation between pages, asset checksums/MIME
 types and missing asset 404s. `/` must return the landing page with HTTP 200; lab
 paths without a trailing slash must redirect to their directory URLs. Check that
 Thread Pool reports cross-origin isolation and completes
 successive Worker batches. Run a Virtual List comparison and confirm the exported
 source revision. Confirm Task Slicer can run, prioritize and cancel work.
+Check canvas panning, cursor-anchored zoom, marquee selection and group dragging;
+verify page scrolling and navigation do not operate the canvas. Resize the window
+and check that canvas coordinates still align with the pointer.
 
 To roll back an update, atomically point `current` to the previous release's
 `site/`. Static content updates need no Caddy restart. Restore the previous Caddy
