@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-11-02T02:35:22.069Z",
+  "dataset": {
+    "version": "mixed-text-v1",
+    "count": 2000,
+    "order": "ascending id",
+    "textIndex": "(id * 17 + 7) % 5"
+  },
+  "environment": {
+    "buildMode": "production",
+    "sourceRevision": "e7e683a",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "language": "en-US",
+    "hardwareConcurrency": 12,
+    "devicePixelRatio": 2,
+    "window": {
+      "width": 1280,
+      "height": 720
+    },
+    "viewport": {
+      "width": 918,
+      "height": 520,
+      "clientWidth": 901
+    },
+    "visibilityState": "visible"
+  },
+  "protocol": {
+    "warmupPerMode": 1,
+    "measuredRoundsPerMode": 3,
+    "order": "full/virtual, virtual/full, full/virtual",
+    "startingScrollTop": 0,
+    "estimatedHeight": 70,
+    "bufferCount": 6,
+    "debug": false,
+    "mountMs": "Synchronous renderer construction and DOM insertion, including any layout triggered inside the renderer and telemetry text updates; excludes dataset creation and teardown.",
+    "layoutReadMs": "Time of one viewport.scrollHeight read immediately after mount; includes any pending style/layout work that the read triggers.",
+    "secondFrameMs": "Elapsed from mount start until the second requestAnimationFrame callback. Not paint completion or fully measured row heights.",
+    "rowNodes": "All .list-item elements in the list, including hidden pool slots, sampled after the second callback.",
+    "descendantNodes": "All element descendants of content-box; excludes its container, phantom and the rest of the page.",
+    "exclusions": [
+      "No scroll benchmark",
+      "No memory or GC measurement",
+      "No FPS or speedup guarantee",
+      "Virtual offscreen heights remain estimates"
+    ]
+  },
+  "samples": [
+    {
+      "round": 1,
+      "order": 1,
+      "mode": "full",
+      "mountMs": 9.900000005960464,
+      "layoutReadMs": 40.29999999701977,
+      "secondFrameMs": 74.6000000089407,
+      "rowNodes": 2000,
+      "descendantNodes": 14000,
+      "scrollHeight": 152400
+    },
+    {
+      "round": 1,
+      "order": 2,
+      "mode": "virtual",
+      "mountMs": 0.6000000089406967,
+      "layoutReadMs": 0.699999988079071,
+      "secondFrameMs": 16.799999997019768,
+      "rowNodes": 20,
+      "descendantNodes": 140,
+      "scrollHeight": 140000
+    },
+    {
+      "round": 2,
+      "order": 1,
+      "mode": "virtual",
+      "mountMs": 0.5999999940395355,
+      "layoutReadMs": 0.6000000089406967,
+      "secondFrameMs": 16.700000002980232,
+      "rowNodes": 20,
+      "descendantNodes": 140,
+      "scrollHeight": 140000
+    },
+    {
+      "round": 2,
+      "order": 2,
+      "mode": "full",
+      "mountMs": 11.099999994039536,
+      "layoutReadMs": 43.400000005960464,
+      "secondFrameMs": 73.59999999403954,
+      "rowNodes": 2000,
+      "descendantNodes": 14000,
+      "scrollHeight": 152400
+    },
+    {
+      "round": 3,
+      "order": 1,
+      "mode": "full",
+      "mountMs": 13.099999994039536,
+      "layoutReadMs": 45.1000000089407,
+      "secondFrameMs": 103.3999999910593,
+      "rowNodes": 2000,
+      "descendantNodes": 14000,
+      "scrollHeight": 152400
+    },
+    {
+      "round": 3,
+      "order": 2,
+      "mode": "virtual",
+      "mountMs": 0.7000000029802322,
+      "layoutReadMs": 0.5999999940395355,
+      "secondFrameMs": 16.799999997019768,
+      "rowNodes": 20,
+      "descendantNodes": 140,
+      "scrollHeight": 140000
+    }
+  ],
+  "summary": {
+    "full": {
+      "count": 3,
+      "mountMs": {
+        "median": 11.099999994039536,
+        "min": 9.900000005960464,
+        "max": 13.099999994039536
+      },
+      "layoutReadMs": {
+        "median": 43.400000005960464,
+        "min": 40.29999999701977,
+        "max": 45.1000000089407
+      },
+      "secondFrameMs": {
+        "median": 74.6000000089407,
+        "min": 73.59999999403954,
+        "max": 103.3999999910593
+      },
+      "rowNodes": {
+        "min": 2000,
+        "max": 2000
+      }
+    },
+    "virtual": {
+      "count": 3,
+      "mountMs": {
+        "median": 0.6000000089406967,
+        "min": 0.5999999940395355,
+        "max": 0.7000000029802322
+      },
+      "layoutReadMs": {
+        "median": 0.6000000089406967,
+        "min": 0.5999999940395355,
+        "max": 0.699999988079071
+      },
+      "secondFrameMs": {
+        "median": 16.799999997019768,
+        "min": 16.700000002980232,
+        "max": 16.799999997019768
+      },
+      "rowNodes": {
+        "min": 20,
+        "max": 20
+      }
+    }
+  }
+}

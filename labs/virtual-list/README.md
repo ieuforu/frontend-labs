@@ -50,6 +50,8 @@ pnpm --filter virtual-list-lab preview --host 127.0.0.1
 
 ## 固定数据与导出
 
+已有一份[实际生产预览测量及原始数据](measurements/README.md)，只描述当次环境，供复现格式参考。
+
 `src/dataset.ts` 定义 `mixed-text-v1`：记录 id 从 0 递增，标题按每千条分组，五种固定文本通过 `(id * 17 + 7) % 5` 选择。相同数据量每次完全一致；小数据集是大数据集的前缀。没有 `Math.random()`，没有网络数据或定时更新。
 
 JSON 包含：
